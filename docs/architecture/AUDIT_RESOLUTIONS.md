@@ -219,35 +219,98 @@ Stored procedure `insert_evidence()` has TOCTOU race condition.
 
 ### Evidence
 ```sql
--- migrations/003_create_evidence.sql:87-110
-SELECT id INTO v_id FROM evidence WHERE content_hash = p_content_hash;
-IF FOUND THEN
+-- migrations/003_create_evidence.sql:75-103
+BEGIN
+  -- Check if already exists
+  SELECT id INTO v_id FROM evidence WHERE content_hash = p_content_hash;
+  
+  -- Return existing if found
+  IF FOUND THEN
+    RETURN v_id;
+  END IF;
+  
+  -- Insert new
+  INSERT INTO evidence (...) VALUES (...);
   RETURN v_id;
-END IF;
-INSERT INTO evidence ...;
+END;
 ```
 
-**Potential race:**
+**Race scenario:**
 ```
 Thread A: SELECT (none found)
 Thread B: SELECT (none found)
 Thread A: INSERT (wins)
-Thread B: INSERT → UNIQUE violation → exception
+Thread B: INSERT → UNIQUE violation → exception raised
+```
+
+**Provider code:**
+```typescript
+// src/adapters/postgres-evidence-provider.ts:27-62
+const result = await client.query<{
+  insert_evidence: string;
+}>(
+  `SELECT insert_evidence($1, $2, $3, $4, $5, $6) as insert_evidence`,
+  [...]
+);
+return result.rows[0].insert_evidence;  // No retry on error
 ```
 
 ### Resolution
-**NEEDS VERIFICATION**
+**ACCEPT AS TODO** - Low priority design issue
 
 ### Rationale
-The stored procedure HAS the race, BUT:
-- Provider uses connection pool
-- Each provider.store() call is sequential
-- No evidence of parallel insertion in current architecture
 
-**Needed:**
-- [ ] Check if evidence collection is parallelized
-- [ ] If parallel, add retry in provider or use ON CONFLICT
-- [ ] If serial, document that assumption
+**The race exists** in the stored procedure, but:
+
+1. **Current usage pattern:** Evidence collectors (terminal, git, test) are **sequential**, not parallelized
+2. **Hash collision probability:** Same evidence hash collected simultaneously is extremely rare
+3. **Impact:** If race occurs, provider throws error → evidence collection fails → can retry
+4. **No data corruption:** UNIQUE constraint prevents duplicates
+
+**This is NOT critical because:**
+- Evidence collection is intentional, user-triggered (not high-throughput ingestion)
+- Failed collection can be retried
+- No silent data loss (error is visible)
+
+**However, should fix for robustness:**
+
+### Recommended Fix
+
+Replace stored procedure with idempotent SQL:
+
+```sql
+-- Option 1: INSERT ... ON CONFLICT (PostgreSQL 9.5+)
+INSERT INTO evidence (type, repository, content, content_hash, provenance, timestamp)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (content_hash) DO NOTHING
+RETURNING id;
+
+-- If no rows returned, query for existing:
+SELECT id FROM evidence WHERE content_hash = $4;
+```
+
+Or in provider (TypeScript):
+
+```typescript
+async store(evidence: Omit<Evidence, 'id'>): Promise<string> {
+  try {
+    return await this.insertEvidence(evidence);
+  } catch (error) {
+    if (error.code === '23505') {  // UNIQUE violation
+      // Race condition - another thread won, retrieve their ID
+      const existing = await this.findByHash(evidence.contentHash);
+      if (existing) return existing;
+    }
+    throw error;
+  }
+}
+```
+
+### Action Items
+- [ ] Determine if evidence collection will ever be parallelized
+- [ ] If yes, implement retry logic in provider
+- [ ] If no, document that collection is sequential in architecture docs
+- [ ] Consider replacing stored procedure with `INSERT ... ON CONFLICT` for simplicity
 
 ---
 
