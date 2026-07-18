@@ -15,12 +15,14 @@ app.listen(PORT, () => {
   console.log('    claude');
   console.log('');
 
-  // Auto-setup memory system when proxy starts
-  try {
-    const { autoSetup } = require('./scripts/memory-hook');
-    autoSetup().catch(() => {}); // Silently fail if hook fails
-  } catch (error) {
-    // Memory hook is optional
+  // Auto-setup memory system when proxy starts (optional)
+  if (process.env.ENABLE_MEMORY_INTEGRATION !== 'false') {
+    try {
+      const { autoSetup } = require('../scripts/integrations/memory/memory-hook');
+      autoSetup().catch(() => {}); // Silently fail if hook fails
+    } catch (error) {
+      // Memory hook is optional - proxy can run without it
+    }
   }
 });
 
