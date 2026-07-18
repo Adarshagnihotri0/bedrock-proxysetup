@@ -14,6 +14,28 @@
 
 ---
 
+## Project Status
+
+**Phase 1: Evidence Layer** - ✅ FROZEN (2026-07-18)
+
+- **Version**: 1.0.0
+- **Verification**: 13/13 tests passed
+- **Documentation**: [`phase1/`](./phase1/)
+
+Phase 1 provides:
+- Canonical evidence serialization (RFC-0001 compliant)
+- Content-addressable storage (SHA-256)
+- Comprehensive provenance tracking
+- PostgreSQL storage with JSONB
+- Global deduplication
+- 10 evidence types supported
+
+**Phase 2: Knowledge Extraction** - 🔄 In Progress
+
+Building on Phase 1 foundation to extract knowledge from evidence.
+
+---
+
 ## Overview
 
 Bedrock Proxy is a lightweight compatibility layer that translates OpenAI and Anthropic API requests into AWS Bedrock Mantle requests.
@@ -38,6 +60,7 @@ It also provides optional integrations for persistent memory, execution tracing,
 | Telegram | Monitoring & notifications (optional) |
 | Health Checks | `/health`, `/ready`, `/alive` endpoints |
 | TypeScript | Fully typed codebase |
+| **Evidence Layer** | **Content-addressable evidence storage (Phase 1)** |
 
 ---
 

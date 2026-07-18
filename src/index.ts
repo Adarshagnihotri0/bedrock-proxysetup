@@ -27,18 +27,18 @@ app.listen(PORT, () => {
 });
 
 // Start Telegram polling (runs in background)
-startTelegramPolling().catch((error) => {
-  console.error('[Telegram] Fatal polling error:', error);
-  process.exit(1);
-});
+// startTelegramPolling().catch((error) => {
+//   console.error('[Telegram] Fatal polling error:', error);
+//   process.exit(1);
+// });
 
 // Handle shutdown gracefully
-process.on('SIGINT', () => {
-  console.log('\n[Telegram] Shutting down...');
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  console.log('\n[Telegram] Shutting down...');
-  process.exit(0);
-}); 
+// process.on('SIGINT', () => {
+//   console.log('\n[Telegram] Shutting down...');
+//   process.exit(0);
+// });
+//
+// process.on('SIGTERM', () => {
+//   console.log('\n[Telegram] Shutting down...');
+//   process.exit(0);
+// }); 

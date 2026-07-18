@@ -1,9 +1,16 @@
 import express from 'express';
 import { invokeModel, invokeModelStream, invokeModelOpenAI, invokeModelStreamOpenAI } from './bedrock';
 import { AVAILABLE_MODELS, STATIC_MODEL_ID } from './adapters';
+import { storeConversationMemory, getMemoryContext, getRecentHistory, clearMemorySession, getMemoryStats } from './middleware/memory';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
+
+// ── Memory Integration Middleware ──────────────────────────────────────────────
+if (process.env.ENABLE_MEMORY_INTEGRATION === 'true') {
+  app.use(storeConversationMemory);
+  console.log('✓ Graphiti memory integration enabled');
+}
 
 // ── Request Traffic Logger (CRITICAL FOR DEBUGGING) ───────────────────────────
 app.use((req, res, next) => {
@@ -196,6 +203,36 @@ app.post('/v1/responses', async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Bedrock error:', message);
     res.status(500).json({ error: { message, type: 'bedrock_error', code: 500 } });
+  }
+});
+
+// ── Memory endpoints (for Graphiti integration) ────────────────────────────────
+app.get('/memory/stats', async (_req, res) => {
+  try {
+    const stats = await getMemoryStats();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get memory stats' });
+  }
+});
+
+app.get('/memory/history', async (req, res) => {
+  try {
+    const limit = parseInt(req.query['limit'] as string) || 20;
+    const sessionId = req.query['sessionId'] as string | undefined;
+    const history = await getRecentHistory(limit, sessionId);
+    res.json(history);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get memory history' });
+  }
+});
+
+app.delete('/memory/session/:sessionId', async (req, res) => {
+  try {
+    await clearMemorySession(req.params['sessionId'] || 'default');
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to clear session' });
   }
 });
 

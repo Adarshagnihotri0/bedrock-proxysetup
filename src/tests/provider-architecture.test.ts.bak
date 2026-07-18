@@ -1,0 +1,393 @@
+/**
+ * Provider Architecture Test
+ * 
+ * Tests that verify the architecture follows the design principles:
+ * 1. Business logic can run without Graphiti/Neo4j
+ * 2. Provider interfaces work correctly
+ * 3. Dependency graph is acyclic
+ * 4. Business logic imports no storage-specific code
+ */
+
+import { createFakeMemory } from '../adapters/fake-provider';
+import type { MemoryProvider } from '../types/providers';
+import type { Evidence, Knowledge } from '../types/knowledge';
+
+describe('Provider Architecture', () => {
+  let memory: MemoryProvider;
+
+  beforeEach(() => {
+    memory = createFakeMemory();
+  });
+
+  describe('Dependency Isolation', () => {
+    it('should run without Graphiti or Neo4j', async () => {
+      // This test proves that the memory system can run without any external dependencies
+      const fakeMemory = createFakeMemory();
+      
+      // Store evidence
+      const evidence: Omit<Evidence, 'id'> = {
+        type: 'git_diff',
+        repository: 'test-repo',
+        content: { files: ['src/index.ts'], additions: 10, deletions: 5 },
+        contentHash: 'hash123',
+        timestamp: new Date(),
+        provenance: {
+          source: 'git.diff',
+          file: 'src/index.ts',
+          branch: 'main',
+        },
+      };
+      
+      const evidenceId = await fakeMemory.storage.evidence.store(evidence);
+      expect(evidenceId).toBeDefined();
+      
+      // Retrieve evidence
+      const retrieved = await fakeMemory.storage.evidence.get(evidenceId);
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.type).toBe('git_diff');
+      expect(retrieved?.repository).toBe('test-repo');
+    });
+
+    it('should store and retrieve knowledge', async () => {
+      const knowledge: Omit<Knowledge, 'id'> = {
+        type: 'repository_knowledge',
+        repository: 'test-repo',
+        content: 'Uses TypeScript strict mode',
+        evidence: ['ev123'],
+        confidence: 0.95,
+        status: 'verified',
+        createdAt: new Date(),
+        topic: 'typescript',
+        facts: ['Strict mode enabled', 'No implicit any'],
+        scope: 'global',
+        discovery: 'documented',
+      } as any;
+
+      const knowledgeId = await memory.storage.knowledge.store(knowledge);
+      expect(knowledgeId).toBeDefined();
+
+      const retrieved = await memory.storage.knowledge.get(knowledgeId);
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.type).toBe('repository_knowledge');
+      expect(retrieved?.confidence).toBe(0.95);
+    });
+
+    it('should query knowledge by repository', async () => {
+      // Store knowledge in different repos
+      await memory.storage.knowledge.store({
+        type: 'coding_convention',
+        repository: 'repo1',
+        content: 'Use camelCase',
+        evidence: [],
+        confidence: 0.9,
+        status: 'active',
+        createdAt: new Date(),
+        rule: 'camelCase for variables',
+        examples: [],
+        scope: 'global',
+        enforcement: 'strict',
+      } as any);
+
+      await memory.storage.knowledge.store({
+        type: 'coding_convention',
+        repository: 'repo2',
+        content: 'Use PascalCase',
+        evidence: [],
+        confidence: 0.9,
+        status: 'active',
+        createdAt: new Date(),
+        rule: 'PascalCase for classes',
+        examples: [],
+        scope: 'global',
+        enforcement: 'strict',
+      } as any);
+
+      // Query by repository
+      const repo1Knowledge = await memory.storage.knowledge.query({ repository: 'repo1' });
+      expect(repo1Knowledge).toHaveLength(1);
+      expect(repo1Knowledge[0].repository).toBe('repo1');
+
+      const repo2Knowledge = await memory.storage.knowledge.query({ repository: 'repo2' });
+      expect(repo2Knowledge).toHaveLength(1);
+      expect(repo2Knowledge[0].repository).toBe('repo2');
+    });
+
+    it('should detect duplicates', async () => {
+      // Store original
+      const original = await memory.storage.knowledge.store({
+        type: 'repository_knowledge',
+        repository: 'test-repo',
+        content: 'This is unique content about testing',
+        evidence: [],
+        confidence: 0.9,
+        status: 'active',
+        createdAt: new Date(),
+        topic: 'testing',
+        facts: ['Test coverage > 80%'],
+        scope: 'global',
+        discovery: 'tested',
+      } as any);
+
+      // Check for duplicates
+      const duplicates = await memory.storage.knowledge.findDuplicates('This is unique content about testing');
+      expect(duplicates.length).toBeGreaterThan(0);
+      expect(duplicates[0].id).toBe(original);
+    });
+
+    it('should store and retrieve entities', async () => {
+      const entityId = await memory.storage.entities.upsert({
+        repository: 'test-repo',
+        name: 'UserService',
+        entityType: 'class',
+        path: 'src/services/user.service.ts',
+        line: 15,
+        dependencies: [],
+        dependents: [],
+        visibility: 'public',
+        content: 'class UserService {}',
+        evidence: [],
+        confidence: 1.0,
+        status: 'active',
+        createdAt: new Date(),
+      } as any);
+
+      const entity = await memory.storage.entities.get(entityId);
+      expect(entity).toBeDefined();
+      expect(entity?.name).toBe('UserService');
+      expect(entity?.entityType).toBe('class');
+    });
+
+    it('should find entity by name', async () => {
+      await memory.storage.entities.upsert({
+        repository: 'test-repo',
+        name: 'AuthService',
+        entityType: 'class',
+        path: 'src/auth/auth.service.ts',
+        line: 10,
+        dependencies: [],
+        dependents: [],
+        visibility: 'public',
+        content: 'class AuthService {}',
+        evidence: [],
+        confidence: 1.0,
+        status: 'active',
+        createdAt: new Date(),
+      } as any);
+
+      const found = await memory.storage.entities.findByName('AuthService', 'test-repo');
+      expect(found).toBeDefined();
+      expect(found?.name).toBe('AuthService');
+    });
+
+    it('should build dependency graph', async () => {
+      // Create entities with dependencies
+      const serviceId = await memory.storage.entities.upsert({
+        repository: 'test-repo',
+        name: 'OrderService',
+        entityType: 'class',
+        path: 'src/services/order.service.ts',
+        line: 10,
+        dependencies: [],
+        dependents: [],
+        visibility: 'public',
+        content: 'class OrderService {}',
+        evidence: [],
+        confidence: 1.0,
+        status: 'active',
+        createdAt: new Date(),
+      } as any);
+
+      const repoId = await memory.storage.entities.upsert({
+        repository: 'test-repo',
+        name: 'OrderRepository',
+        entityType: 'class',
+        path: 'src/repositories/order.repository.ts',
+        line: 5,
+        dependencies: [],
+        dependents: [],
+        visibility: 'public',
+        content: 'class OrderRepository {}',
+        evidence: [],
+        confidence: 1.0,
+        status: 'active',
+        createdAt: new Date(),
+      } as any);
+
+      // Link dependencies
+      await memory.storage.entities.linkDependencies(serviceId, [repoId]);
+
+      // Get dependency graph
+      const graph = await memory.storage.entities.getDependencyGraph(serviceId, 2);
+      expect(graph.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Retrieval', () => {
+    beforeEach(async () => {
+      // Setup some test data
+      await memory.storage.knowledge.store({
+        type: 'architectural_decision',
+        repository: 'test-repo',
+        content: 'Authentication uses JWT tokens with refresh mechanism',
+        evidence: [],
+        confidence: 0.95,
+        status: 'active',
+        createdAt: new Date(),
+        title: 'JWT Authentication',
+        decision: 'Use JWT for authentication',
+        reason: 'Stateless, scalable, widely supported',
+        alternatives: [],
+        consequences: ['Need refresh token logic', 'Cannot revoke tokens instantly'],
+        decisionStatus: 'accepted',
+        affectedComponents: ['auth/middleware.ts', 'auth/service.ts'],
+      } as any);
+
+      await memory.storage.knowledge.store({
+        type: 'repository_knowledge',
+        repository: 'test-repo',
+        content: 'Database connection uses PostgreSQL with connection pooling',
+        evidence: [],
+        confidence: 0.90,
+        status: 'active',
+        createdAt: new Date(),
+        topic: 'database',
+        facts: ['PostgreSQL database', 'Connection pool size: 10'],
+        scope: 'global',
+        discovery: 'documented',
+      } as any);
+    });
+
+    it('should perform semantic search', async () => {
+      const results = await memory.retrieval.semanticSearch('authentication', 'test-repo');
+      
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].knowledge.type).toBe('architectural_decision');
+      expect(results[0].score).toBeGreaterThan(0);
+      expect(results[0].source).toBe('semantic');
+    });
+
+    it('should perform hybrid retrieval', async () => {
+      const results = await memory.retrieval.hybrid({
+        type: 'semantic',
+        repository: 'test-repo',
+        text: 'database',
+        maxTokens: 1000,
+      });
+
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].sources.length).toBeGreaterThan(0);
+      expect(results[0].rank).toBeDefined();
+    });
+
+    it('should get recent knowledge', async () => {
+      const results = await memory.retrieval.getRecent('test-repo', 10);
+      
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].source).toBe('recent');
+    });
+  });
+
+  describe('Reasoning', () => {
+    it('should build explanation', async () => {
+      // Store some knowledge first
+      await memory.storage.knowledge.store({
+        type: 'repository_knowledge',
+        repository: 'test-repo',
+        content: 'Redis is used for caching and rate limiting',
+        evidence: [],
+        confidence: 0.90,
+        status: 'active',
+        createdAt: new Date(),
+        topic: 'caching',
+        facts: ['Redis for caching', 'Redis for rate limiting'],
+        scope: 'global',
+        discovery: 'documented',
+      } as any);
+
+      const context = await memory.reasoning.explain('Redis', 'test-repo');
+      
+      expect(context.repository).toBe('test-repo');
+      expect(context.task).toContain('Redis');
+      expect(context.relevantKnowledge.length).toBeGreaterThan(0);
+      expect(context.explanations.length).toBeGreaterThan(0);
+      expect(context.overallConfidence).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Context Building', () => {
+    it('should build context', async () => {
+      const context = await memory.context.build({
+        type: 'semantic',
+        repository: 'test-repo',
+        text: 'authentication',
+        maxTokens: 5000,
+      });
+
+      expect(context).toBeDefined();
+      expect(context.length).toBeGreaterThan(0);
+    });
+
+    it('should count tokens', async () => {
+      const context = 'This is a test context to count tokens';
+      const tokenCount = await memory.context.getTokenCount(context);
+      
+      expect(tokenCount).toBeGreaterThan(0);
+      expect(tokenCount).toBeLessThan(context.length);
+    });
+
+    it('should compress context', async () => {
+      const longContext = 'This is a very long context. '.repeat(1000);
+      const maxTokens = 100;
+      
+      const compressed = await memory.context.compress(longContext, maxTokens);
+      const tokenCount = await memory.context.getTokenCount(compressed);
+      
+      expect(tokenCount).toBeLessThanOrEqual(maxTokens);
+    });
+  });
+
+  describe('Evidence Deduplication', () => {
+    it('should not store duplicate evidence', async () => {
+      const evidence: Omit<Evidence, 'id'> = {
+        type: 'git_diff',
+        repository: 'test-repo',
+        content: { files: ['src/test.ts'] },
+        contentHash: 'unique-hash-123',
+        timestamp: new Date(),
+        provenance: { source: 'git.diff' },
+      };
+
+      // Store first time
+      const id1 = await memory.storage.evidence.store(evidence);
+      
+      // Store second time (should return same ID)
+      const id2 = await memory.storage.evidence.store(evidence);
+      
+      expect(id1).toBe(id2);
+      
+      // Check that only one exists
+      const all = await memory.storage.evidence.query({ repository: 'test-repo' });
+      const matching = all.filter(e => e.contentHash === 'unique-hash-123');
+      expect(matching.length).toBe(1);
+    });
+
+    it('should check if evidence exists', async () => {
+      const hash = 'test-hash-456';
+      
+      const exists1 = await memory.storage.evidence.exists(hash);
+      expect(exists1).toBe(false);
+      
+      await memory.storage.evidence.store({
+        type: 'terminal_output',
+        repository: 'test-repo',
+        content: { output: 'test' },
+        contentHash: hash,
+        timestamp: new Date(),
+        provenance: { source: 'terminal.stdout' },
+      });
+      
+      const exists2 = await memory.storage.evidence.exists(hash);
+      expect(exists2).toBe(true);
+    });
+  });
+});
