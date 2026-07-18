@@ -25,7 +25,7 @@ Validated Neo4j projection backend through 4 production milestones with empirica
 
 **What Was Tested:**
 - Dataset: 1001 knowledge rows (generated test data)
-- Method: True streaming via `pg-query-stream` (batches of 100)
+- Method: Cursor-based streaming via `pg-query-stream` (batches of 100)
 - Database operations: Clear graph → Stream → Project → Count
 
 **Observed Results:**
@@ -43,9 +43,10 @@ Throughput:                   206 facts/sec
 ✅ Node count matches row count (exact)
 ✅ Zero projection failures
 ✅ End-to-end replay pipeline throughput: 206 facts/sec
-✅ True streaming (not buffering all rows in RAM)
+✅ Cursor-based streaming implementation (pg-query-stream)
 
 **What's NOT Proven:**
+❌ Memory behavior under load (not characterized yet)
 ❌ Sustained throughput over hours/days
 ❌ Performance at scale (50k+, 100k+ events)
 ❌ Crash recovery (partial replay)
@@ -87,11 +88,11 @@ Canonical serialization after rebuild:
 ```
 
 **What's Proven:**
-✅ Idempotency: replaying identical input produced identical canonical serialization
-✅ Canonical serialization identical after rebuild
+✅ Strong evidence that replay is idempotent for the serialized properties
+✅ Canonical serialization identical after rebuild  
 ✅ Properties tested: `id, subject, predicate, object, confidence`
 ✅ MERGE prevents duplicates during idempotent replay
-✅ Hash comparison proves content match (stronger than count comparison)
+✅ Two executions produced identical canonical serializations (verified by SHA-256)
 
 **What's NOT Proven:**
 ❌ "Full graph semantic equality" (not all properties tested)
@@ -156,7 +157,7 @@ REQUIRE k.id IS UNIQUE
 | Canonical serialization preserved | SHA-256 hash match | M2 |
 | Unique constraint enforced | Duplicate blocked | M3 |
 | End-to-end replay works | 1001 rows → 1001 nodes | M1 |
-| True streaming replay | pg-query-stream implementation | M1 |
+| Cursor-based streaming implementation | pg-query-stream used | M1 |
 | Replay pipeline throughput | 206 facts/sec measured | M1 |
 
 ### What's NOT PROVEN (Yet)
@@ -175,10 +176,10 @@ REQUIRE k.id IS UNIQUE
 
 ## Technical Improvements Made
 
-**Streaming Implementation:**
-- Changed: `SELECT ...` (buffers all rows)
-- To: `pg-query-stream` (true streaming, batches of 100)
-- Impact: Can handle larger datasets without memory pressure
+**Technical Improvements:**
+- Cursor-based streaming: `pg-query-stream` (batches of 100)
+- Memory behavior: Not yet characterized (added profiling scripts)
+- Impact: Implementation supports larger datasets
 
 **Idempotency Proof:**
 - Added: REPLAY TWICE TEST (without delete)
@@ -216,27 +217,26 @@ REQUIRE k.id IS UNIQUE
 
 ---
 
-## Engineering Review Rating
+## Validation Matrix
 
-**Evidence Quality:** 8.5/10
-- ✅ Objective measurements (counts, hashes, timing)
-- ✅ Honest about limitations
-- ✅ Streaming implemented correctly
-- ✅ Database constraint proven
-- ⚠️ Limited scale (only 1001 tested)
-- ⚠️ Not all properties verified
-- ⚠️ No crash recovery yet
-
-**Claim Accuracy:** 9.5/10
-- ✅ Every claim matches demonstrated behavior
-- ✅ "Canonical serialization" not "full graph"
-- ✅ "End-to-end pipeline" not just "projection"
-- ✅ "Replay twice produces same count" not "proves determinism"
-- ⚠️ One claim still slightly strong (removed in this version)
+| Validation | Status | Evidence |
+|------------|--------|----------|
+| Replay correctness | ✅ | Replay report |
+| Replay metrics | ✅ | Collected and reproducible |
+| Canonical serialization equality | ✅ | SHA-256 comparison |
+| Replay idempotency | ✅ | Second replay hash equality |
+| Unique constraint | ✅ | Duplicate insertion test |
+| Cursor-based streaming | ✅ | `pg-query-stream` implementation |
+| Memory characterization | ⏳ | Planned |
+| Relationship preservation | ⏳ | Planned |
+| Crash recovery | ⏳ | Planned |
+| Concurrent projection | ⏳ | Planned |
+| Order-independent replay | ⏳ | Planned |
+| Scale >1001 | ⏳ | Planned |
 
 **Recommendation:**
-- Milestones 1-3 are sufficient for initial production use at current scale
-- Defer M4 (checkpoint) until crash recovery is required
+- Milestones 1-3 validated with reproducible evidence
+- Remaining items are operational validation (not correctness fixes)
 - Add semantic verification to CI pipeline
 - Next: scale testing at 10k, 50k, 100k events
 
