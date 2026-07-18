@@ -91,7 +91,9 @@ export class VectorRetrievalService implements RetrievalService {
         object: row.object,
         confidence: row.confidence,
         evidenceIds: Array.isArray(row.evidence_id) ? row.evidence_id : [],
-        provenance: {}
+        provenance: {
+          hash: row.hash  // Stable identifier for benchmarking
+        }
       }));
 
       // Sort by score descending

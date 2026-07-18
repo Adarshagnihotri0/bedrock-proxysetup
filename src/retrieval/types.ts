@@ -17,6 +17,7 @@ export interface RetrievedKnowledge {
     repository?: string;
     createdAt?: Date;
     traceId?: string;
+    hash?: string;  // Stable identifier for benchmarking
   };
 }
 

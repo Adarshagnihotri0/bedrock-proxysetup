@@ -20,17 +20,15 @@ import fs from 'fs';
 import { VectorRetrievalService } from '../src/retrieval/vector-retrieval';
 import { EmbeddingProvider } from '../src/embedding/types';
 
-interface ExpectedResults {
-  top1?: string[];
-  top5?: string[];
-  top10?: string[];
+interface RelevantDocument {
+  hash: string;
 }
 
 interface QueryTest {
   query: string;
   description: string;
   category: string;
-  expected: ExpectedResults;
+  relevant: RelevantDocument[];
   keywords?: string[];
 }
 
@@ -41,6 +39,7 @@ interface EvaluationCorpus {
 
 interface RetrievalMetrics {
   top1_accuracy: number;
+  recall_at_1: number;
   recall_at_5: number;
   recall_at_10: number;
   mrr: number;
@@ -53,6 +52,7 @@ interface QueryResult {
   retrieved: Array<{ id: string; score: number }>;
   metrics: {
     top1_hit: boolean;
+    recall1: number;
     recall5: number;
     recall10: number;
     reciprocal_rank: number;
@@ -62,35 +62,31 @@ interface QueryResult {
 }
 
 function computeMetrics(
-  retrieved: Array<{ id: string; score: number }>,
-  expected: ExpectedResults,
+  retrieved: Array<{ id: string; hash?: string; score: number }>,
+  relevantHashes: string[],
   keywords?: string[]
-): { top1_hit: boolean; recall5: number; recall10: number; reciprocal_rank: number; keyword_match: number } {
-  const retrieved_ids = retrieved.map(r => r.id);
+): { top1_hit: boolean; recall1: number; recall5: number; recall10: number; reciprocal_rank: number; keyword_match: number } {
+  // Use hash if available, otherwise fall back to id
+  const retrieved_ids = retrieved.map(r => r.hash || r.id);
   
   // Top-1 accuracy
-  const top1_hit = expected.top1 ? 
-    expected.top1.some(exp => retrieved_ids[0] === exp) : 
-    false;
+  const top1_hit = relevantHashes.includes(retrieved_ids[0]);
   
-  // Recall@5
-  const recall5 = expected.top5 ? 
-    expected.top5.filter(exp => retrieved_ids.slice(0, 5).includes(exp)).length / expected.top5.length : 
-    0;
+  // Recall@1 (is first relevant doc in position 1?)
+  const recall1 = relevantHashes.includes(retrieved_ids[0]) ? 1 : 0;
   
-  // Recall@10
-  const recall10 = expected.top10 ? 
-    expected.top10.filter(exp => retrieved_ids.includes(exp)).length / expected.top10.length : 
-    0;
+  // Recall@5 (fraction of relevant docs in top 5)
+  const recall5 = relevantHashes.filter(h => retrieved_ids.slice(0, 5).includes(h)).length / relevantHashes.length;
+  
+  // Recall@10 (fraction of relevant docs in top 10)
+  const recall10 = relevantHashes.filter(h => retrieved_ids.includes(h)).length / relevantHashes.length;
   
   // Reciprocal Rank (1/position of first relevant result)
   let reciprocal_rank = 0;
-  if (expected.top5) {
-    for (let i = 0; i < retrieved_ids.length; i++) {
-      if (expected.top5.includes(retrieved_ids[i])) {
-        reciprocal_rank = 1 / (i + 1);
-        break;
-      }
+  for (let i = 0; i < retrieved_ids.length; i++) {
+    if (relevantHashes.includes(retrieved_ids[i])) {
+      reciprocal_rank = 1 / (i + 1);
+      break;
     }
   }
   
@@ -101,7 +97,7 @@ function computeMetrics(
     keyword_match = keywords.filter(kw => resultText.includes(kw.toLowerCase())).length / keywords.length;
   }
   
-  return { top1_hit, recall5, recall10, reciprocal_rank, keyword_match };
+  return { top1_hit, recall1, recall5, recall10, reciprocal_rank, keyword_match };
 }
 
 async function evaluateRetrieval(
@@ -115,9 +111,15 @@ async function evaluateRetrieval(
     const retrieved = await retrievalService.retrieve(test.query, { limit: 10 });
     const latency_ms = Date.now() - start;
 
+    const relevantHashes = test.relevant.map(r => r.hash);
+
     const metrics = computeMetrics(
-      retrieved.map(r => ({ id: r.id, score: r.score })),
-      test.expected,
+      retrieved.map(r => ({ 
+        id: r.id, 
+        hash: r.provenance?.hash, 
+        score: r.score 
+      })),
+      relevantHashes,
       test.keywords
     );
 
@@ -140,6 +142,7 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
   
   // Aggregate metrics
   const top1_count = results.filter(r => r.metrics.top1_hit).length;
+  const avg_recall1 = results.reduce((sum, r) => sum + r.metrics.recall1, 0) / total;
   const avg_recall5 = results.reduce((sum, r) => sum + r.metrics.recall5, 0) / total;
   const avg_recall10 = results.reduce((sum, r) => sum + r.metrics.recall10, 0) / total;
   const mrr = results.reduce((sum, r) => sum + r.metrics.reciprocal_rank, 0) / total;
@@ -152,6 +155,7 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
 
   console.log(`Retrieval Metrics:`);
   console.log(`  Top-1 Accuracy: ${((top1_count / total) * 100).toFixed(1)}% (${top1_count}/${total})`);
+  console.log(`  Recall@1: ${(avg_recall1 * 100).toFixed(1)}%`);
   console.log(`  Recall@5: ${(avg_recall5 * 100).toFixed(1)}%`);
   console.log(`  Recall@10: ${(avg_recall10 * 100).toFixed(1)}%`);
   console.log(`  MRR: ${mrr.toFixed(3)}`);
@@ -168,7 +172,7 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
     console.log(`${i + 1}. ${status} [${result.category}]`);
     console.log(`   Query: "${result.query}"`);
     console.log(`   Top-1: ${result.metrics.top1_hit ? 'HIT' : 'MISS'}`);
-    console.log(`   R@5: ${(result.metrics.recall5 * 100).toFixed(0)}% | R@10: ${(result.metrics.recall10 * 100).toFixed(0)}%`);
+    console.log(`   R@1: ${(result.metrics.recall1 * 100).toFixed(0)}% | R@5: ${(result.metrics.recall5 * 100).toFixed(0)}% | R@10: ${(result.metrics.recall10 * 100).toFixed(0)}%`);
     console.log(`   RR: ${result.metrics.reciprocal_rank.toFixed(3)} | Latency: ${result.latency_ms} ms`);
     console.log(`   Top 3: ${result.retrieved.slice(0, 3).map(r => r.id.substring(0, 15)).join(', ')}...`);
     console.log('');
@@ -200,10 +204,10 @@ async function main() {
 
   console.log(`Loaded ${corpus.queries.length} test queries from ${corpusPath}\n`);
 
-  // Check if corpus has expected results
-  const hasExpected = corpus.queries.some(q => q.expected && (q.expected.top1 || q.expected.top5));
-  if (!hasExpected) {
-    console.log('⚠️  Corpus lacks expected.top1/top5 results');
+  // Check if corpus has relevance judgments
+  const hasRelevant = corpus.queries.some(q => q.relevant && q.relevant.length > 0);
+  if (!hasRelevant) {
+    console.log('⚠️  Corpus lacks relevance judgments');
     console.log('Metrics will use keyword overlap only (weak proxy)\n');
   }
 
