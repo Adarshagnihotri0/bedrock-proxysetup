@@ -73,22 +73,25 @@ Throughput:                   206 facts/sec
 
 **Observed Results:**
 ```
-Idempotency test (replay twice):
-  Nodes before:  1001
-  Nodes after:   1001
-  Result:        ✅ Node count unchanged
+Idempotency test (replay without delete):
+  Nodes before:      1001
+  Nodes after:       1001
+  Hash before:       aa99493ab5c85d632...
+  Hash after:        aa99493ab5c85d632...
+  Result:            ✅ Identical canonical serialization
 
-Canonical serialization:
+Canonical serialization after rebuild:
   Original hash:  aa99493ab5c85d63255b504e32940021403a4e6a3c50d7f7dbf8bedf21cc301f
   Rebuilt hash:   aa99493ab5c85d63255b504e32940021403a4e6a3c50d7f7dbf8bedf21cc301f
   Match:          ✅ YES
 ```
 
 **What's Proven:**
-✅ Idempotency: replay twice produces same node count
+✅ Idempotency: replaying identical input produced identical canonical serialization
 ✅ Canonical serialization identical after rebuild
 ✅ Properties tested: `id, subject, predicate, object, confidence`
 ✅ MERGE prevents duplicates during idempotent replay
+✅ Hash comparison proves content match (stronger than count comparison)
 
 **What's NOT Proven:**
 ❌ "Full graph semantic equality" (not all properties tested)
@@ -148,12 +151,12 @@ REQUIRE k.id IS UNIQUE
 
 | Claim | Evidence | Milestone |
 |-------|----------|-----------|
-| MERGE semantics work | M2 idempotency test | M2 |
-| Idempotency: replay twice same count | Exactly tested | M2 |
+| MERGE semantics work | Hash comparison after replay | M2 |
+| Idempotency: identical serialization on replay | SHA-256 hash match after replay without delete | M2 |
 | Canonical serialization preserved | SHA-256 hash match | M2 |
 | Unique constraint enforced | Duplicate blocked | M3 |
 | End-to-end replay works | 1001 rows → 1001 nodes | M1 |
-| True streaming replay | pg-query-stream used | M1 |
+| True streaming replay | pg-query-stream implementation | M1 |
 | Replay pipeline throughput | 206 facts/sec measured | M1 |
 
 ### What's NOT PROVEN (Yet)

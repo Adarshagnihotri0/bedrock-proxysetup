@@ -109,7 +109,27 @@ async function semanticVerification() {
     const countAfterIdempotent = await session.run('MATCH (k:Knowledge) RETURN COUNT(k) as count');
     const nodeCountIdempotent = countAfterIdempotent.records[0].get('count').toNumber();
     console.log(`  Nodes after replay: ${nodeCountIdempotent}`);
-    console.log(`  ${nodeCountIdempotent === canonical1.length ? '✅' : '❌'} Idempotency: node count unchanged\n`);
+    
+    // Also check hash to prove idempotency beyond just count
+    const graphIdempotent = await session.run(`
+      MATCH (k:Knowledge)
+      RETURN k.id, k.subject, k.predicate, k.object, k.confidence
+      ORDER BY k.id
+    `);
+    const canonicalIdempotent = graphIdempotent.records.map(r => ({
+      id: r.get('k.id'),
+      subject: r.get('k.subject'),
+      predicate: r.get('k.predicate'),
+      object: r.get('k.object'),
+      confidence: r.get('k.confidence')
+    }));
+    const hashIdempotent = createHash('sha256')
+      .update(JSON.stringify(canonicalIdempotent))
+      .digest('hex');
+    
+    const idempotencyHashMatch = hash1 === hashIdempotent;
+    console.log(`  Hash after replay: ${hashIdempotent}`);
+    console.log(`  ${idempotencyHashMatch ? '✅' : '❌'} Idempotency: replay produced identical canonical serialization\n`);
 
     // STEP 3: Delete graph
     console.log('STEP 3: Deleting graph...');
@@ -170,22 +190,22 @@ async function semanticVerification() {
     console.log(`Match:          ${hash1 === hash2 ? '✅ YES' : '❌ NO'}`);
     console.log('='.repeat(60));
 
-    const idempotencyPassed = nodeCountIdempotent === canonical1.length;
+    const idempotencyPassed = idempotencyHashMatch;
     const rebuildPassed = hash1 === hash2;
 
     if (idempotencyPassed && rebuildPassed) {
       console.log('\n✅ VERIFICATION PASSED');
-      console.log('   - Idempotency: replay twice produces same node count');
+      console.log('   - Idempotency: replaying identical input produced identical canonical serialization');
       console.log('   - Canonical serialization: identical hash after rebuild');
       console.log('   - Content equality: serialized properties match\n');
       return true;
     } else {
       console.log('\n❌ VERIFICATION FAILED');
       if (!idempotencyPassed) {
-        console.log('   - Idempotency failed: node count changed');
+        console.log('   - Idempotency failed: canonical serialization changed on replay');
       }
       if (!rebuildPassed) {
-        console.log('   - Canonical serialization differs\n');
+        console.log('   - Canonical serialization differs after rebuild\n');
       }
       return false;
     }
