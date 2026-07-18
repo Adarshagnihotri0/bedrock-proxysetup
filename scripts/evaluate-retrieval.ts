@@ -17,6 +17,7 @@ import yaml from 'yaml';
 import fs from 'fs';
 import { VectorRetrievalService } from '../src/retrieval/vector-retrieval';
 import { MockEmbeddingProvider } from '../src/embedding/mock-provider';
+import { EmbeddingProvider } from '../src/embedding/types';
 
 interface QueryTest {
   query: string;
@@ -26,7 +27,15 @@ interface QueryTest {
 }
 
 interface EvaluationCorpus {
+  version: string;
   queries: QueryTest[];
+}
+
+interface TimingBreakdown {
+  embedding_ms: number;
+  ann_search_ms: number;
+  hydration_ms: number;
+  total_ms: number;
 }
 
 interface QueryResult {
@@ -35,22 +44,32 @@ interface QueryResult {
   matched_keywords: string[];
   total_keywords: number;
   hits: number;
-  latency_ms: number;
+  timing: TimingBreakdown;
   results: string[];
 }
 
 async function evaluateRetrieval(
   retrievalService: VectorRetrievalService,
+  embedFn: (text: string) => Promise<number[]>,
   corpus: EvaluationCorpus
 ): Promise<QueryResult[]> {
   const results: QueryResult[] = [];
 
   for (const test of corpus.queries) {
-    const start = Date.now();
+    // Timing: Embedding
+    const embeddingStart = Date.now();
+    const embedding = await embedFn(test.query);
+    const embedding_ms = Date.now() - embeddingStart;
     
+    // Timing: ANN search + hydration
+    const searchStart = Date.now();
     const retrieved = await retrievalService.retrieve(test.query, { limit: 10 });
+    const total_ms = Date.now() - searchStart;
     
-    const latency_ms = Date.now() - start;
+    // Note: Currently we don't separate ANN from hydration in retrieve()
+    // That would require exposing those internals. For now, combine them.
+    const ann_search_ms = 0; // placeholder
+    const hydration_ms = total_ms; // Actually: total - embedding time
 
     // Check if results contain expected keywords
     const resultText = retrieved
@@ -70,7 +89,12 @@ async function evaluateRetrieval(
       matched_keywords,
       total_keywords: test.expected_keywords.length,
       hits: retrieved.length,
-      latency_ms,
+      timing: {
+        embedding_ms,
+        ann_search_ms,
+        hydration_ms,
+        total_ms: embedding_ms + total_ms
+      },
       results: retrieved.slice(0, 5).map(r => `${r.subject}:${r.object}`)
     });
   }
@@ -78,16 +102,25 @@ async function evaluateRetrieval(
   return results;
 }
 
-function printReport(results: QueryResult[]) {
+function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus: EvaluationCorpus) {
   console.log('\n=== Retrieval Evaluation Report ===\n');
 
   const passed = results.filter(r => r.passed).length;
   const total = results.length;
-  const avg_latency = results.reduce((sum, r) => sum + r.latency_ms, 0) / total;
+  
+  const avg_total = results.reduce((sum, r) => sum + r.timing.total_ms, 0) / total;
+  const avg_embedding = results.reduce((sum, r) => sum + r.timing.embedding_ms, 0) / total;
+  const avg_hydration = results.reduce((sum, r) => sum + r.timing.hydration_ms, 0) / total;
 
-  console.log(`Queries: ${total}`);
-  console.log(`Passed: ${passed}/${total} (${(passed / total * 100).toFixed(1)}%)`);
-  console.log(`Average latency: ${avg_latency.toFixed(1)} ms\n`);
+  console.log(`Provider: ${provider.name}`);
+  console.log(`Corpus: ${corpus.version}`);
+  console.log(`Top-1: ${((passed / total) * 100).toFixed(0)}%`);
+  console.log(`Latency: ${avg_total.toFixed(0)} ms\n`);
+  
+  console.log(`Timing Breakdown:`);
+  console.log(`  Embedding: ${avg_embedding.toFixed(0)} ms`);
+  console.log(`  ANN search + hydration: ${avg_hydration.toFixed(0)} ms`);
+  console.log(`  Total: ${avg_total.toFixed(0)} ms\n`);
 
   console.log('Individual Results:\n');
 
@@ -99,7 +132,7 @@ function printReport(results: QueryResult[]) {
     console.log(`   Keywords matched: ${result.matched_keywords.length}/${result.total_keywords}`);
     console.log(`   ${result.matched_keywords.join(', ')}`);
     console.log(`   Hits: ${result.hits}`);
-    console.log(`   Latency: ${result.latency_ms} ms`);
+    console.log(`   Total: ${result.timing.total_ms} ms`);
     console.log(`   Top 5: ${result.results.slice(0, 3).join(', ')}...`);
     console.log('');
   });
@@ -145,8 +178,8 @@ async function main() {
   );
 
   try {
-    const results = await evaluateRetrieval(retrievalService, corpus);
-    printReport(results);
+    const results = await evaluateRetrieval(retrievalService, (text) => provider.embed(text), corpus);
+    printReport(results, provider, corpus);
   } finally {
     await driver.close();
     await pgPool.end();

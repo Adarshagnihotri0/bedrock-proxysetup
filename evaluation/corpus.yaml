@@ -1,9 +1,13 @@
-# Retrieval Evaluation Corpus
+# Retrieval Evaluation Corpus v1
 #
 # Purpose: Measure retrieval quality systematically
 # Format: query + expected keywords + minimum hits
 #
-# Usage: npm run evaluate-retrieval
+# Categories: Architecture (2), Replay (1), Embedding (1), Retrieval (1)
+#
+# Usage: npm run evaluate:retrieval
+
+version: v1
 
 queries:
   - query: "canonical serialization replay"

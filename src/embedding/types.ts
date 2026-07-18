@@ -10,6 +10,11 @@
 
 export interface EmbeddingProvider {
   /**
+   * Provider name for benchmarking (e.g., "mock", "text-embedding-3-small", "nomic-embed-text")
+   */
+  readonly name: string;
+
+  /**
    * Model identifier for versioning
    */
   readonly model: string;

@@ -8,8 +8,7 @@
 
 import { EmbeddingProvider } from './types';
 
-export class MockEmbeddingProvider implements EmbeddingProvider {
-  readonly model = 'mock-embedding';
+export class MockEmbeddingProvider implements EmbeddingProvider {  readonly name = 'mock';  readonly model = 'mock-embedding';
   readonly dimension = 1536;
 
   async embed(text: string): Promise<number[]> {
