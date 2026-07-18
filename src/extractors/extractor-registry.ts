@@ -8,7 +8,7 @@
 import type { Evidence } from '../types/knowledge';
 import type { NewKnowledge } from '../types/knowledge-extraction';
 import type { KnowledgeExtractor } from '../types/extractors';
-import { TerminalOutputExtractor } from '../extractors/terminal-output-extractor';
+import { TerminalOutputExtractor } from './terminal-output-extractor';
 
 /**
  * Registry of all knowledge extractors
