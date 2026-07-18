@@ -2,8 +2,14 @@ node_modules
 dist
 .env
 
-# OS files
-.DS_Store
+# VS Code settings
+.vscode/
 
 # Archive (not tracked in git)
 archive/
+
+# Database migrations
+migrations/
+
+# OS files
+.DS_Store
