@@ -73,23 +73,33 @@ export class ExtractorRegistry {
   /**
    * Sort knowledge in canonical order
    * Ensures same logical knowledge always produces same array order
+   * 
+   * CRITICAL: Uses binary comparison (locale-independent) for replay determinism.
+   * Never use localeCompare() - it's locale-dependent and breaks replay across
+   * different environments (e.g., Turkish locale handles I/i differently).
+   * 
+   * Invariant: K1 (Deterministic Extraction)
    */
   private sortKnowledge(knowledge: NewKnowledge[]): NewKnowledge[] {
     return [...knowledge].sort((a, b) => {
+      // Binary comparison (locale-independent)
       // Compare by subject first
-      const subjectCmp = a.subject.localeCompare(b.subject);
-      if (subjectCmp !== 0) return subjectCmp;
+      if (a.subject < b.subject) return -1;
+      if (a.subject > b.subject) return 1;
       
       // Then predicate
-      const predicateCmp = a.predicate.localeCompare(b.predicate);
-      if (predicateCmp !== 0) return predicateCmp;
+      if (a.predicate < b.predicate) return -1;
+      if (a.predicate > b.predicate) return 1;
       
       // Then object
-      const objectCmp = a.object.localeCompare(b.object);
-      if (objectCmp !== 0) return objectCmp;
+      if (a.object < b.object) return -1;
+      if (a.object > b.object) return 1;
       
-      // Finally type (should be same if everything else matches)
-      return a.type.localeCompare(b.type);
+      // Finally type
+      if (a.type < b.type) return -1;
+      if (a.type > b.type) return 1;
+      
+      return 0;
     });
   }
   
