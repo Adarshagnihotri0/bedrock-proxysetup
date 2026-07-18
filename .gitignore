@@ -11,9 +11,7 @@ archive/
 # Database migrations
 migrations/
 
-# Documentation - keep images and new docs
-docs/architecture/
-docs/design-docs/
+# Documentation - keep images
 docs/images/diagram*.png
 
 # OS files
