@@ -15,6 +15,8 @@
  */
 
 import { Pool } from 'pg';
+// @ts-ignore - no types available
+import QueryStream from 'pg-query-stream';
 import neo4j from 'neo4j-driver';
 import { Knowledge } from '../src/projection/types';
 
@@ -65,8 +67,8 @@ async function replayAllKnowledge(): Promise<ReplayReport> {
     await session.run('MATCH (k:Knowledge) DELETE k');
     console.log('✅ Cleared Neo4j graph');
 
-    // Stream from PG → Neo4j
-    const result = await pg.query(`
+    // Stream from PG → Neo4j (TRUE streaming, no buffering)
+    const query = new QueryStream(`
       SELECT 
         hash,
         subject,
@@ -79,11 +81,13 @@ async function replayAllKnowledge(): Promise<ReplayReport> {
       FROM knowledge
       WHERE hash IS NOT NULL
       ORDER BY created_at ASC
-    `);
+    `, [], { batchSize: 100 }); // Process in batches of 100
 
-    console.log(`Streaming ${result.rows.length} rows to Neo4j...\n`);
+    const stream = pg.query(query);
+    
+    console.log(`Streaming rows to Neo4j (batches of 100)...\n`);
 
-    for (const row of result.rows) {
+    for await (const row of stream) {
       try {
         const knowledge: Knowledge = {
           id: row.hash,

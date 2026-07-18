@@ -31,8 +31,10 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.20.0",
+    "@types/pg-query-stream": "^1.0.3",
     "@types/uuid": "^10.0.0",
     "jest": "^30.4.2",
+    "pg-query-stream": "^4.16.0",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
