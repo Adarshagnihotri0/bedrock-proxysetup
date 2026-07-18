@@ -76,6 +76,15 @@ async function backfillEmbeddings(
       // Generate embeddings
       const embeddings = await provider.embedBatch(texts);
 
+      // Validate dimensions
+      for (const emb of embeddings) {
+        if (emb.length !== provider.dimension) {
+          throw new Error(
+            `Embedding dimension mismatch: expected ${provider.dimension}, got ${emb.length}`
+          );
+        }
+      }
+
       // Update Neo4j nodes
       for (let j = 0; j < batch.length; j++) {
         const row = batch[j];
