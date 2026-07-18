@@ -14,12 +14,12 @@
  * - Name: knowledge_embeddings
  */
 
-import neo4j from 'neo4j-driver';
+import neo4j, { Driver } from 'neo4j-driver';
 
 const DIMENSION = 1536;
 const INDEX_NAME = 'knowledge_embeddings';
 
-async function createVectorIndex(driver: neo4j.Driver) {
+async function createVectorIndex(driver: Driver) {
   const session = driver.session();
 
   try {

@@ -11,7 +11,7 @@
  * This is the stable foundation.
  */
 
-import { Driver } from 'neo4j-driver';
+import neo4j, { Driver, int } from 'neo4j-driver';
 import { Pool } from 'pg';
 import { RetrievedKnowledge, RetrievalOptions, RetrievalService } from './types';
 
@@ -42,13 +42,16 @@ export class VectorRetrievalService implements RetrievalService {
     try {
       const result = await session.run(
         `
-        CALL db.index.vector.queryNode('knowledge_embeddings', $limit, $embedding)
+        CALL db.index.vector.queryNodes($indexName, $limit, $embedding)
         YIELD node, score
         RETURN node.id AS knowledgeId, score
         ORDER BY score DESC
-        LIMIT $limit
         `,
-        { embedding, limit }
+        { 
+          indexName: 'knowledge_embeddings',
+          embedding, 
+          limit: int(limit)
+        }
       );
 
       const neo4jHits = result.records.map(record => ({
@@ -70,10 +73,7 @@ export class VectorRetrievalService implements RetrievalService {
           predicate,
           object,
           confidence,
-          evidence_id,
-          repository,
-          created_at,
-          trace_id
+          evidence_id
         FROM knowledge
         WHERE hash = ANY($1)
         `,
@@ -90,12 +90,8 @@ export class VectorRetrievalService implements RetrievalService {
         predicate: row.predicate,
         object: row.object,
         confidence: row.confidence,
-        evidenceIds: row.evidence_id || [],
-        provenance: {
-          repository: row.repository,
-          createdAt: row.created_at,
-          traceId: row.trace_id
-        }
+        evidenceIds: Array.isArray(row.evidence_id) ? row.evidence_id : [],
+        provenance: {}
       }));
 
       // Sort by score descending

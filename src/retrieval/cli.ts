@@ -64,7 +64,7 @@ async function main() {
       console.log(`Object: ${result.object}`);
       console.log(`Confidence: ${result.confidence}`);
       
-      if (result.evidenceIds.length > 0) {
+      if (result.evidenceIds && result.evidenceIds.length > 0) {
         console.log(`Evidence IDs: ${result.evidenceIds.slice(0, 3).join(', ')}${result.evidenceIds.length > 3 ? '...' : ''}`);
       }
       

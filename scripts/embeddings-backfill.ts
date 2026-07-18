@@ -13,14 +13,14 @@
  *   npx ts-node scripts/embeddings-backfill.ts
  */
 
-import neo4j from 'neo4j-driver';
+import neo4j, { Driver } from 'neo4j-driver';
 import { Pool } from 'pg';
 import { EmbeddingProvider } from '../src/embedding/types';
 import { MockEmbeddingProvider } from '../src/embedding/mock-provider';
 // import { OpenAIEmbeddingProvider } from '../src/embedding/openai-provider';
 
 async function backfillEmbeddings(
-  neo4j: neo4j.Driver,
+  neo4j: Driver,
   pg: Pool,
   provider: EmbeddingProvider,
   batchSize = 100
@@ -50,7 +50,7 @@ async function backfillEmbeddings(
       RETURN k.id AS id
     `, { model: provider.model });
 
-    const existingIds = new Set(existingResult.records.map(r => r.get('id')));
+    const existingIds = new Set(existingResult.records.map((r: any) => r.get('id')));
     console.log(`${existingIds.size} nodes already have embeddings for model ${provider.model}`);
 
     // Filter to only nodes needing embeddings
@@ -74,7 +74,9 @@ async function backfillEmbeddings(
       );
 
       // Generate embeddings
-      const embeddings = await provider.embedBatch(texts);
+      const embeddings = provider.embedBatch 
+        ? await provider.embedBatch(texts)
+        : await Promise.all(texts.map(t => provider.embed(t)));
 
       // Validate dimensions
       for (const emb of embeddings) {
