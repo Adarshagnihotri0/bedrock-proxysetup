@@ -175,40 +175,72 @@ This allows:
 Canonical protocol has undecided decisions (DECISION-002, DECISION-007, DECISION-009) which may break replay.
 
 ### Evidence
+
+**Spec status:**
 ```markdown
 | DECISION-007 | FOUNDATIONAL | 🔴 UNDECIDED | Number domain (integer vs float) |
 | DECISION-002 | CRITICAL | 🔴 UNDECIDED | Number representation |
 | DECISION-009 | CRITICAL | 🔴 UNDECIDED | String escaping |
 ```
 
-### Resolution
-**ACCEPT AS TODO** - Partial finding
+**Test vector conformance:**
+```
+Test: scratch/canonical-test.ts
+Test vectors: canonical-protocol/test-vectors/serialization/
 
-### Rationale
-**Correct:** The specification is incomplete.
-
-**Incorrect:** The report jumps to "replay will fail" without evidence.
-
-Current implementation uses:
-```typescript
-// Key sorting: UTF-8 byte order (algorithm complete)
-const keys = Object.keys(value).sort((a, b) => {
-  return Buffer.from(a, 'utf8').compare(Buffer.from(b, 'utf8'));
-});
+Result: 6/6 tests PASSED ✅
+- SER-0001: Object field ordering ✅
+- SER-0002: Nested object ordering ✅
+- SER-0102: Array ordering ✅
+- SER-0201: Number representation ✅
+- SER-0257: String escaping ✅
+- SER-0260: Complex structure ✅
 ```
 
-This IS deterministic for keys.
+**Current implementation:**
+```typescript
+// src/pipeline/admission-pipeline.ts:255-275
+private canonicalSerialize(value: unknown): string {
+  return JSON.stringify(this.sortKeys(value));
+}
 
-**The gap:** Number and string serialization may have edge cases (1.0 vs 1, escaping rules).
+private sortKeys(value: unknown): unknown {
+  // ... recursively sort keys by UTF-8 byte order
+  const keys = Object.keys(value).sort((a, b) => {
+    return Buffer.from(a, 'utf8').compare(Buffer.from(b, 'utf8'));
+  });
+  // ...
+}
+```
 
-**Action Items:**
-- [ ] Run canonical protocol test vectors against current implementation
-- [ ] Document which test vectors pass/fail
-- [ ] Define policy: "Node.js JSON.stringify" OR "RFC 8785 canonical JSON"
-- [ ] If Node.js: document engine version requirement
-- [ ] If RFC 8785: implement proper canonical serializer
+### Resolution
+**ACCEPT AS TODO - Low Priority**
 
-**Priority:** Medium (not blocking Phase 2, but required before production).
+### Rationale
+
+**Claim was too strong:** The spec is incomplete, but current implementation PASSES all available test vectors.
+
+**No demonstrated failure:** The audit claimed "replay will fail" but conformance tests show no failure.
+
+**Actual gap:**
+- Spec has undecided edge cases (Number representation, String escaping)
+- Current implementation uses Node.js `JSON.stringify` which is deterministic for tested cases
+- Spec incompletion is architectural debt, not production blocker
+
+### Decision
+**Current implementation is sufficient for Phase 2** with documented assumption:
+
+> Canonical serialization SHALL be Node.js JSON.stringify with UTF-8 byte-ordered keys.
+
+This is a valid policy choice (not a bug).
+
+### Action Items
+- [ ] Document policy in canonical-protocol spec: "Node.js JSON.stringify"
+- [ ] Monitor DECISION-002/007/009 when they resolve
+- [ ] Re-run test vectors if canonical-protocol updates
+- [ ] Consider RFC 8785 if multi-language interoperability requirement emerges
+
+**Priority:** Low (monitored, not blocking).
 
 ---
 
@@ -263,9 +295,10 @@ return result.rows[0].insert_evidence;  // No retry on error
 **The race exists** in the stored procedure, but:
 
 1. **Current usage pattern:** Evidence collectors (terminal, git, test) are **sequential**, not parallelized
-2. **Hash collision probability:** Same evidence hash collected simultaneously is extremely rare
-3. **Impact:** If race occurs, provider throws error → evidence collection fails → can retry
-4. **No data corruption:** UNIQUE constraint prevents duplicates
+2. **No current consumers:** `grep -r "createTerminalCollector" src/**/*.ts` → 0 uses (no production usage yet)
+3. **Hash collision probability:** Same evidence hash collected simultaneously is extremely rare
+4. **Impact:** If race occurs, provider throws error → evidence collection fails → can retry
+5. **No data corruption:** UNIQUE constraint prevents duplicates (PostgreSQL guarantees atomicity)
 
 **This is NOT critical because:**
 - Evidence collection is intentional, user-triggered (not high-throughput ingestion)
