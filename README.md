@@ -1,136 +1,194 @@
-# GLM Bedrock Proxy - MCP 1.0.0
+# Bedrock Proxy
 
-A dual-port proxy server that enables multiple AI clients (VS Code/GitHub Copilot and OpenHands) to access GLM models through AWS Bedrock Mantle.
+A Node.js/Express proxy server that enables AI clients to access GLM models through AWS Bedrock Mantle.
 
 ## What is This Repository?
 
 This is a **Node.js/Express proxy server** that:
 - Routes LLM requests to AWS Bedrock Mantle endpoint
 - Provides OpenAI-compatible API endpoints
-- Runs on **two ports simultaneously** to serve different clients
+- Runs on configurable ports to serve different clients
 - Integrates with Graphiti memory system for persistent AI memory
+- Supports Telegram notifications for monitoring
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    MCP 1.0.0 Proxy                           │
+│                    Bedrock Proxy                             │
 │                                                              │
-│  ┌──────────────────┐         ┌──────────────────┐        │
-│  │   Port 2999      │         │   Port 3000       │        │
-│  │  (VS Code)       │         │  (OpenHands)      │        │
-│  │                  │         │                   │        │
-│  │ Telegram: ON     │         │ Telegram: OFF     │        │
-│  │ Logs: 2999.log   │         │ Logs: 3000.log    │        │
-│  │ PID: 2999.pid    │         │ PID: 3000.pid     │        │
-│  └────────┬─────────┘         └────────┬──────────┘        │
-│           │                             │                   │
-│           └──────────┬──────────────────┘                  │
-│                      │                                      │
-│              ┌───────▼────────┐                             │
-│              │ Express Server │                             │
-│              │  src/index.ts  │                             │
-│              └───────┬────────┘                             │
-│                      │                                      │
-│              ┌───────▼────────┐                             │
-│              │ Bedrock Mantle  │                             │
-│              │  (AWS API)      │                             │
-│              └────────────────┘                             │
-└─────────────────────────────────────────────────────────────┘
-
-Integration:
-┌─────────────────────────────────────────────────────────────┐
-│  Port 2999                                                   │
-│    └─> VS Code / GitHub Copilot                             │
-│    └─> Runs in your current AI session                       │
-│    └─> Telegram notifications enabled                       │
-│                                                              │
-│  Port 3000                                                   │
-│    └─> OpenHands (~/.openhands/settings.json)               │
-│    └─> Configured in settings.json with base_url            │
-│    └─> Telegram disabled for stability                      │
+│          ┌──────────────────┐                              │
+│          │   Port 3000       │                              │
+│          │  (Configurable)   │                              │
+│          │                   │                              │
+│          │ Telegram: Optional│                              │
+│          └────────┬─────────┘                              │
+│                   │                                          │
+│           ┌───────▼────────┐                               │
+│           │ Express Server │                               │
+│           │  src/index.ts  │                               │
+│           └───────┬────────┘                               │
+│                   │                                          │
+│           ┌───────▼────────┐                               │
+│           │ Bedrock Mantle  │                               │
+│           │  (AWS API)      │                               │
+│           └────────────────┘                               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Why Two Ports?
+## Features
 
-Different AI clients need separate proxy instances:
-
-1. **Port 2999 - VS Code/GitHub Copilot (You)**
-   - Your current AI assistant (running this conversation)
-   - Accessed via VS Code settings
-   - Telegram notifications enabled for Claude Code responses
-   - Can have background Telegram polling
-
-2. **Port 3000 - OpenHands**
-   - Separate AI agent (https://github.com/All-Hands-AI/OpenHands)
-   - Configured in `~/.openhands/settings.json`
-   - Telegram disabled to prevent connection issues
-   - Runs independently
-
-Both ports share the same proxy code and connect to the same Bedrock backend.
+- **OpenAI-Compatible API**: Drop-in replacement for OpenAI API
+- **Anthropic-Compatible**: Supports `/v1/messages` endpoint
+- **Telegram Integration**: Optional notifications for monitoring
+- **Memory System**: Graphiti memory integration support
+- **PostgreSQL Persistence**: Execution trace storage
+- **Redis Caching**: Response caching for performance
 
 ## Quick Start
 
-### 1. Start Dual-Port Proxy
+### 1. Install Dependencies
 ```bash
-# Start both ports
-cd ~/aiFlow/future/mcp1.0.0
-./start-dual-ports.sh
-
-# Or use the main AI startup script
-~/start-ai.sh
+npm install
 ```
 
-### 2. Verify Both Ports
+### 2. Configure Environment
 ```bash
-# Check health with 5s timeout
-perl -e 'alarm 5; exec @ARGV' -- curl -s http://localhost:2999/health
-perl -e 'alarm 5; exec @ARGV' -- curl -s http://localhost:3000/health
-```
-claude
+cp .env.example .env
+# Edit .env with your configuration
 ```
 
-**Cursor/Continue:** See [docs/DUAL_PORT_SETUP.md](docs/DUAL_PORT_SETUP.md) for detailed setup.
-
-### 3. Test LLM Requests
+### 3. Start the Proxy
 ```bash
-# Test port 2999 (VS Code)
-perl -e 'alarm 5; exec @ARGV' -- curl -s -X POST http://localhost:2999/v1/chat/completions \
+# Development mode
+npm run dev
+
+# Production mode
+npm run build
+npm start
+```
+
+### 4. Verify It's Running
+```bash
+curl -s http://localhost:3000/health
+```
+
+### 5. Test LLM Requests
+```bash
+curl -X POST http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer test" \
   -d '{"model": "zai.glm-5", "messages": [{"role": "user", "content": "hello"}], "max_tokens": 10}'
+```
 
-# Test port 3000 (OpenHands)
-perl -e 'alarm 5; exec @ARGV' -- curl -s -X POST http://localhost:3000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer test" \
-  -d '{"model": "zai.glm-5", "messages": [{"role": "user", "content": "hello"}], "max_tokens": 10}'
+## Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/v1/chat/completions` | POST | OpenAI-compatible chat |
+| `/v1/messages` | POST | Anthropic-compatible messages |
+| `/ready` | GET | Readiness probe |
+| `/alive` | GET | Liveness probe |
+
+## Environment Variables
+
+### Required Configuration
+
+```bash
+# AWS Bedrock Mantle API key (REQUIRED)
+BEDROCK_MANTLE_API_KEY=your_api_key_here
+
+# AWS region where Bedrock is enabled
+AWS_REGION=ap-south-1
+
+# Port this proxy listens on
+PORT=3000
+```
+
+### Optional Integrations
+
+```bash
+# Telegram Bot Integration (optional)
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+TELEGRAM_ENABLED=true
+
+# Memory System Integration (optional)
+ENABLE_MEMORY_INTEGRATION=true
+
+# PostgreSQL for Execution Traces (optional)
+DATABASE_URL="postgresql://user@localhost:5432/dbname"
+
+# Redis cache (optional)
+REDIS_URL=redis://localhost:6379
+```
+
+## Project Structure
+
+```
+bedrock-proxy/
+├── src/
+│   ├── index.ts              # Main entry point
+│   ├── server.ts             # Express server setup
+│   ├── bedrock.ts            # Bedrock API integration
+│   ├── telegram-polling.ts   # Telegram notification service
+│   ├── adapters.ts           # API adapters
+│   ├── db/
+│   │   ├── client.ts         # Database client
+│   │   ├── save-trace.ts     # Trace persistence (sync)
+│   │   └── save-trace-async.ts # Trace persistence (async)
+│   ├── middleware/
+│   │   └── context.ts        # Request context middleware
+│   ├── services/
+│   │   ├── message-service.ts # Message handling
+│   │   └── trace-service.ts   # Trace management
+│   ├── types/
+│   │   ├── api.ts            # API type definitions
+│   │   ├── context.ts        # Context types
+│   │   └── trace.ts          # Trace types
+│   └── utils/
+│       ├── logger.ts         # Logging utilities
+│       ├── prompt-builder.ts  # Prompt construction
+│       └── redis-cache.ts    # Redis caching
+├── scripts/
+│   ├── integrations/
+│   │   ├── memory/           # Memory system integration
+│   │   │   ├── dev-with-memory.sh
+│   │   │   └── memory-hook.js
+│   │   └── telegram/         # Telegram bot utilities
+│   │       └── get-telegram-chat-id.js
+│   └── operations/           # Operational scripts
+│       ├── dev-with-notify.sh
+│       ├── openhands-start.sh
+│       ├── proxy-start.sh
+│       ├── proxy-status.sh
+│       ├── proxy-stop.sh
+│       └── start-dual-ports.sh
+├── .env.example              # Environment template
+├── package.json
+├── tsconfig.json
+└── README.md                 # This file
 ```
 
 ## Integration Details
 
-### VS Code / GitHub Copilot (Port 2999)
+### VS Code / GitHub Copilot
 
-This port is used by your current VS Code AI assistant. It's automatically configured when you run VS Code with the proxy settings.
+Configure VS Code to use the proxy:
 
-**Environment:**
-```bash
-ANTHROPIC_BASE_URL=http://localhost:2999
-ANTHROPIC_API_KEY=dummy
+```json
+{
+  "github.copilot.advanced": {
+    "debug.overrideProxy": "http://localhost:3000"
+  }
+}
 ```
 
-**Status:**
-- Runs in terminal session s020 (background)
-- Process: Node.js ts-node
-- Logs: `~/glm-proxy-2999.log`
-- PID: `~/glm-proxy-2999.pid`
+### OpenHands
 
-### OpenHands (Port 3000)
+Configure OpenHands in `~/.openhands/settings.json`:
 
-OpenHands is configured to use this port in its settings file.
-
-**Configuration (`~/.openhands/settings.json`):**
 ```json
 {
   "agent_settings": {
@@ -143,192 +201,138 @@ OpenHands is configured to use this port in its settings file.
 }
 ```
 
-**Status:**
-- Runs in terminal session s020 (background)
-- Process: Node.js ts-node
-- Logs: `~/glm-proxy-3000.log`
-- PID: `~/glm-proxy-3000.pid`
+### Memory System Integration
 
-## Memory System Integration
+The proxy can integrate with Graphiti memory system:
 
-The proxy integrates with Graphiti memory system on startup:
-
-```javascript
-// src/index.ts - Automatic memory setup
-try {
-  const { autoSetup } = require('./scripts/memory-hook');
-  autoSetup().catch(() => {}); // Silently fail if hook fails
-} catch (error) {
-  // Memory hook is optional
-}
+```bash
+# Start with memory integration
+scripts/integrations/memory/dev-with-memory.sh
 ```
 
 **Memory Components:**
 - Neo4j Database: bolt://localhost:7687
-- Graphiti Memory: ~/workspace/project/415bbbcd111a4a15ae5a9785d35276ef
+- Graphiti Memory: Persistent AI memory
 - Auto-initialized when proxy starts
 
-See the memory system repo: https://github.com/Adarshagnihotri0/openhands-graphiti-memory
+See: https://github.com/Adarshagnihotri0/openhands-graphiti-memory
 
-## Process Management
+## Development
 
-### Check Running Processes
+### Available Scripts
+
 ```bash
-# View both ports
-lsof -i :2999 -i :3000 | grep LISTEN
+# Development mode with auto-reload
+npm run dev
 
-# View PIDs
-cat ~/glm-proxy-2999.pid
-cat ~/glm-proxy-3000.pid
+# Build TypeScript to JavaScript
+npm run build
 
-# View processes
-ps aux | grep "ts-node.*index.ts" | grep -v grep
+# Run production build
+npm start
+
+# Run tests
+npm test
 ```
 
-### Stop Processes
-```bash
-# Kill by PID
-kill $(cat ~/glm-proxy-2999.pid)
-kill $(cat ~/glm-proxy-3000.pid)
+### Development Tools
 
-# Or kill by port
-lsof -ti :2999 | xargs kill -9
-lsof -ti :3000 | xargs kill -9
-```
+```typescript
+// Start with memory integration
+import { autoSetup } from './scripts/integrations/memory/memory-hook';
 
-### Restart
-```bash
-# Use the startup script
-./start-dual-ports.sh
-```
-
-## Endpoints
-
-Both ports expose identical endpoints:
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/v1/chat/completions` | POST | OpenAI-compatible chat |
-| `/v1/messages` | POST | Anthropic-compatible messages |
-| `/ready` | GET | Readiness probe |
-| `/alive` | GET | Liveness probe |
-
-## Environment Variables
-
-### .env Configuration
-```bash
-# Port configuration
-PORT=2999  # Default port (overridden by start-dual-ports.sh)
-
-# Telegram notifications
-TELEGRAM_ENABLED=true   # Port 2999
-TELEGRAM_ENABLED=false  # Port 3000
-
-# AWS Bedrock
-BEDROCK_MANTLE_API_KEY=your_key_here
-AWS_REGION=ap-south-1
-
-# Database
-DATABASE_URL="postgresql://user@localhost:5432/postgres"
-
-# Redis cache
-REDIS_URL=redis://localhost:6379
-```
-
-## Logs
-
-```bash
-# View port 2999 logs
-tail -f ~/glm-proxy-2999.log
-
-# View port 3000 logs
-tail -f ~/glm-proxy-3000.log
-
-# View all proxy logs
-tail -f ~/glm-proxy.log
+autoSetup().catch(() => {
+  // Memory hook is optional
+});
 ```
 
 ## Troubleshooting
 
 ### Port Already in Use
+
 ```bash
-# Kill existing processes
-lsof -ti :2999 | xargs kill -9
+# Find process using port
+lsof -i :3000
+
+# Kill process
 lsof -ti :3000 | xargs kill -9
-
-# Restart
-./start-dual-ports.sh
 ```
 
-### Connection Timeout
-All curl commands use 5s timeout:
+### Connection Issues
+
 ```bash
-perl -e 'alarm 5; exec @ARGV' -- curl -s http://localhost:2999/health
-```
+# Check if proxy is running
+curl -s http://localhost:3000/health
 
-### OpenHands Can't Connect
-1. Check port 3000 is running: `lsof -i :3000 | grep LISTEN`
-2. Check OpenHands config: `cat ~/.openhands/settings.json | grep base_url`
-3. Check logs: `tail -20 ~/glm-proxy-3000.log`
+# Check logs
+tail -f logs/proxy.log
+```
 
 ### Telegram Issues
-- Port 2999: Telegram enabled (may show "Unreachable" if network issues)
-- Port 3000: Telegram disabled (`TELEGRAM_ENABLED=false`)
 
-## Development
+- Check if `TELEGRAM_ENABLED=true` in `.env`
+- Verify bot token and chat ID
+- Test with: `scripts/integrations/telegram/get-telegram-chat-id.js`
 
-### Start in Development Mode
+### Database Issues
+
 ```bash
-# Single port (default 2999)
-npm run dev
+# Check PostgreSQL connection
+psql $DATABASE_URL -c "SELECT 1"
 
-# Dual-port (recommended)
-./start-dual-ports.sh
+# Check Redis connection
+redis-cli -u $REDIS_URL ping
 ```
 
-### Run Tests
+## Operation Scripts
+
+Convenient scripts for managing the proxy:
+
 ```bash
-npm test
-```
+# Start proxy
+scripts/operations/proxy-start.sh
 
-### Build
-```bash
-npm run build
-```
+# Check proxy status
+scripts/operations/proxy-status.sh
 
-## Repository Structure
+# Stop proxy
+scripts/operations/proxy-stop.sh
 
-```
-mcp1.0.0/
-├── src/
-│   ├── index.ts              # Main entry point (dual-port support)
-│   ├── server.ts             # Express server setup
-│   ├── bedrock.ts            # Bedrock API integration
-│   └── scripts/
-│       └── memory-hook.js    # Auto-setup memory on start
-├── start-dual-ports.sh      # Dual-port startup script
-├── DUAL_PORT_SETUP.md       # Setup documentation
-├── README.md                 # This file
-└── .env                      # Environment variables
+# Start dual-port setup (ports 2999 & 3000)
+scripts/operations/start-dual-ports.sh
 
-Log Files (in ~/):
-├── glm-proxy-2999.log        # Port 2999 logs
-├── glm-proxy-3000.log        # Port 3000 logs
-├── glm-proxy-2999.pid        # Port 2999 PID
-└── glm-proxy-3000.pid        # Port 3000 PID
+# Development with notifications
+scripts/operations/dev-with-notify.sh
 ```
 
 ## Related Repositories
 
-- **Memory System:** https://github.com/Adarshagnihotri0/openhands-graphiti-memory
+- **Memory System**: https://github.com/Adarshagnihotri0/openhands-graphiti-memory
   - Graphiti memory integration
   - Neo4j graph database
-  - Port-agnostic configuration
-
-- **OpenHands:** https://github.com/All-Hands-AI/OpenHands
+  
+- **OpenHands**: https://github.com/All-Hands-AI/OpenHands
   - Autonomous AI agent
-  - Uses port 3000 for LLM calls
+  - Uses proxy for LLM calls
+
+## Security
+
+### Important
+
+- **Never commit `.env` file** - It's excluded in `.gitignore`
+- Always use `.env.example` for sharing configuration
+- Rotate API keys if accidentally exposed
+- Use environment-specific credentials
+
+### Excluded from Git
+
+- `.env` - Environment variables
+- `.vscode/` - Editor settings
+- `node_modules/` - Dependencies
+- `dist/` - Build output
+- `archive/` - Archived files
+- `migrations/` - Database migrations
+- `docs/` - Documentation
 
 ## License
 
@@ -337,70 +341,7 @@ MIT
 ## Support
 
 For issues:
-1. Check logs: `tail -f ~/glm-proxy-2999.log` or `tail -f ~/glm-proxy-3000.log`
-2. Check processes: `lsof -i :2999 -i :3000 | grep LISTEN`
-3. Restart: `./start-dual-ports.sh`
-4. Check memory system: `cd ~/workspace/project/415bbbcd111a4a15ae5a9785d35276ef`
-
-
----
-
-## Architecture
-
-**Bedrock Proxy** - Express.js server providing:
-
-- `/v1/messages` - Anthropic-compatible endpoint
-- `/v1/chat/completions` - OpenAI-compatible endpoint  
-- `/v1/models` - List available Bedrock models
-- `/health` - Health check endpoint
-
-### Components
-
-```
-bedrock-proxy/
-├── src/
-│   ├── index.ts           - Entry point
-│   ├── server.ts          - Express router + endpoints
-│   ├── bedrock.ts         - AWS Bedrock client
-│   ├── adapters.ts        - Protocol translation
-│   └── telegram-polling.ts - Optional notifications
-├── scripts/
-│   └── start-dual-ports.sh - Run on ports 2999 + 3000
-└── docs/
-    └── DUAL_PORT_SETUP.md  - Client configuration guide
-```
-
----
-
-## Features
-
-✅ **Anthropic API compatibility** - Drop-in replacement for Claude API  
-✅ **OpenAI API compatibility** - Works with tools expecting OpenAI format  
-✅ **Dual port support** - Port 2999 (VS Code) + Port 3000 (OpenHands)  
-✅ **Telegram notifications** - Optional progress updates  
-✅ **PostgreSQL tracing** - Optional request logging
-
----
-
-## Documentation
-
-- [Quick Reference](docs/QUICK_REFERENCE.md) - Complete setup guide
-- [Dual Port Setup](docs/DUAL_PORT_SETUP.md) - Multi-client configuration
-- [Architecture](docs/ARCHITECTURE.md) - Technical details
-- [Flow Diagram](docs/FLOW_DIAGRAM.md) - Request flow visualization
-
----
-
-## Requirements
-
-- Node.js 18+
-- AWS account with Bedrock access
-- (Optional) PostgreSQL for tracing
-- (Optional) Redis for caching
-- (Optional) Telegram bot for notifications
-
----
-
-## License
-
-MIT
+1. Check logs: `tail -f logs/proxy.log`
+2. Check processes: `lsof -i :3000`
+3. Restart: `npm run dev`
+4. Check memory system (if using): `scripts/integrations/memory/dev-with-memory.sh`
