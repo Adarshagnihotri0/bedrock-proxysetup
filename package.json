@@ -12,6 +12,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "evaluate:retrieval": "ts-node scripts/evaluate-retrieval.ts",
+    "evaluate:retrieval-v2": "ts-node scripts/evaluate-retrieval-v2.ts",
     "verify:audit": "ts-node scripts/verify-audit.ts",
     "test:canonical": "ts-node scratch/canonical-test.ts"
   },

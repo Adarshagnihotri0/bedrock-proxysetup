@@ -32,9 +32,8 @@ interface EvaluationCorpus {
 }
 
 interface TimingBreakdown {
-  embedding_ms: number;
-  ann_search_ms: number;
-  hydration_ms: number;
+  embedding_ms?: number;  // Optional: measured separately
+  retrieve_ms: number;     // Total retrieval time
   total_ms: number;
 }
 
@@ -50,26 +49,18 @@ interface QueryResult {
 
 async function evaluateRetrieval(
   retrievalService: VectorRetrievalService,
-  embedFn: (text: string) => Promise<number[]>,
   corpus: EvaluationCorpus
 ): Promise<QueryResult[]> {
   const results: QueryResult[] = [];
 
   for (const test of corpus.queries) {
-    // Timing: Embedding
-    const embeddingStart = Date.now();
-    const embedding = await embedFn(test.query);
-    const embedding_ms = Date.now() - embeddingStart;
-    
-    // Timing: ANN search + hydration
+    // Timing: Total retrieval (includes embedding internally)
     const searchStart = Date.now();
     const retrieved = await retrievalService.retrieve(test.query, { limit: 10 });
-    const total_ms = Date.now() - searchStart;
+    const retrieve_ms = Date.now() - searchStart;
     
-    // Note: Currently we don't separate ANN from hydration in retrieve()
-    // That would require exposing those internals. For now, combine them.
-    const ann_search_ms = 0; // placeholder
-    const hydration_ms = total_ms; // Actually: total - embedding time
+    // Note: retrieve() creates embeddings internally, so we measure total time
+    // To measure embedding separately, would need to refactor VectorRetrievalService
 
     // Check if results contain expected keywords
     const resultText = retrieved
@@ -90,10 +81,8 @@ async function evaluateRetrieval(
       total_keywords: test.expected_keywords.length,
       hits: retrieved.length,
       timing: {
-        embedding_ms,
-        ann_search_ms,
-        hydration_ms,
-        total_ms: embedding_ms + total_ms
+        retrieve_ms,
+        total_ms: retrieve_ms
       },
       results: retrieved.slice(0, 5).map(r => `${r.subject}:${r.object}`)
     });
@@ -107,20 +96,15 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
 
   const passed = results.filter(r => r.passed).length;
   const total = results.length;
-  
-  const avg_total = results.reduce((sum, r) => sum + r.timing.total_ms, 0) / total;
-  const avg_embedding = results.reduce((sum, r) => sum + r.timing.embedding_ms, 0) / total;
-  const avg_hydration = results.reduce((sum, r) => sum + r.timing.hydration_ms, 0) / total;
+  const avg_retrieve = results.reduce((sum, r) => sum + r.timing.retrieve_ms, 0) / total;
 
   console.log(`Provider: ${provider.name}`);
   console.log(`Corpus: ${corpus.version}`);
-  console.log(`Top-1: ${((passed / total) * 100).toFixed(0)}%`);
-  console.log(`Latency: ${avg_total.toFixed(0)} ms\n`);
+  console.log(`Keyword Match: ${((passed / total) * 100).toFixed(0)}%`);
+  console.log(`Latency: ${avg_retrieve.toFixed(0)} ms\n`);
   
-  console.log(`Timing Breakdown:`);
-  console.log(`  Embedding: ${avg_embedding.toFixed(0)} ms`);
-  console.log(`  ANN search + hydration: ${avg_hydration.toFixed(0)} ms`);
-  console.log(`  Total: ${avg_total.toFixed(0)} ms\n`);
+  console.log(`Note: Currently measures keyword overlap, not Top-1 precision.`);
+  console.log(`Future: Add expected_first/top5 for real retrieval metrics.\n`);
 
   console.log('Individual Results:\n');
 
@@ -132,7 +116,7 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
     console.log(`   Keywords matched: ${result.matched_keywords.length}/${result.total_keywords}`);
     console.log(`   ${result.matched_keywords.join(', ')}`);
     console.log(`   Hits: ${result.hits}`);
-    console.log(`   Total: ${result.timing.total_ms} ms`);
+    console.log(`   Latency: ${result.timing.retrieve_ms} ms`);
     console.log(`   Top 5: ${result.results.slice(0, 3).join(', ')}...`);
     console.log('');
   });
@@ -143,8 +127,10 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
     console.log('✅ All queries passed\n');
   } else {
     console.log(`⚠️  ${total - passed} queries failed\n`);
-    console.log('Note: Mock embeddings are not semantically meaningful.');
-    console.log('Replace with OpenAI embeddings for real retrieval quality.\n');
+    console.log('Caveats:');
+    console.log('- Measuring keyword overlap (not Top-1 precision)');
+    console.log('- Mock embeddings are not semantically meaningful');
+    console.log('- Need expected_first/top5 for real retrieval metrics\n');
   }
 }
 
@@ -178,7 +164,7 @@ async function main() {
   );
 
   try {
-    const results = await evaluateRetrieval(retrievalService, (text) => provider.embed(text), corpus);
+    const results = await evaluateRetrieval(retrievalService, corpus);
     printReport(results, provider, corpus);
   } finally {
     await driver.close();

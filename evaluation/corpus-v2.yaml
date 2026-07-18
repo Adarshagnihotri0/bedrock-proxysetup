@@ -1,0 +1,132 @@
+# Retrieval Evaluation Corpus v2
+#
+# Purpose: Measure real retrieval metrics (not just keyword overlap)
+#
+# Metrics we can now compute:
+# - Top-1 accuracy: retrieved[0] in expected.top1?
+# - Recall@5: |expected.top5 ∩ retrieved[0:5]| / |expected.top5|
+# - Recall@10: |expected.top10 ∩ retrieved[0:10]| / |expected.top10|
+# - MRR: Mean Reciprocal Rank
+# - NDCG: Normalized Discounted Cumulative Gain
+#
+# Previous limitation:
+# - Only measured keyword overlap (weak proxy)
+# - Didn't verify actual relevant documents returned
+#
+# New approach:
+# - Specify expected knowledge IDs (or hashes)
+# - Measure actual retrieval quality
+
+version: v2
+
+queries:
+  - query: "canonical serialization replay"
+    description: "Query about canonical serialization and replay"
+    category: Architecture
+    
+    # Expected results (knowledge IDs or hashes)
+    # Note: These need to be populated by examining actual data
+    expected:
+      top1:
+        - knowledge_182  # placeholder - update with real ID
+        
+      top5:
+        - knowledge_182
+        - knowledge_91
+        - knowledge_47
+        
+      top10:
+        - knowledge_182
+        - knowledge_91
+        - knowledge_47
+        - knowledge_23
+        - knowledge_15
+    
+    # Legacy keyword matching (weaker metric)
+    keywords:
+      - canonical
+      - serialization
+      - replay
+      - hash
+
+  - query: "neo4j projection knowledge"
+    description: "Query about Neo4j projection"
+    category: Architecture
+    
+    expected:
+      top1:
+        - knowledge_205
+        
+      top5:
+        - knowledge_205
+        - knowledge_178
+        - knowledge_142
+        
+    keywords:
+      - projection
+      - neo4j
+      - knowledge
+      - graph
+
+  - query: "validation idempotency replay"
+    description: "Query about validation and idempotency"
+    category: Replay
+    
+    expected:
+      top1:
+        - knowledge_33
+        
+      top5:
+        - knowledge_33
+        - knowledge_87
+        - knowledge_112
+        
+    keywords:
+      - validation
+      - idempotency
+      - replay
+      - constraint
+
+  - query: "embedding vector search"
+    description: "Query about embeddings and vector search"
+    category: Embedding
+    
+    expected:
+      top1:
+        - knowledge_298
+        
+      top5:
+        - knowledge_298
+        - knowledge_301
+        - knowledge_289
+        
+    keywords:
+      - embedding
+      - vector
+      - search
+      - similarity
+
+  - query: "knowledge retrieval pipeline"
+    description: "Query about retrieval pipeline"
+    category: Retrieval
+    
+    expected:
+      top1:
+        - knowledge_445
+        
+      top5:
+        - knowledge_445
+        - knowledge_452
+        - knowledge_467
+        
+    keywords:
+      - retrieval
+      - pipeline
+      - query
+      - knowledge
+
+# TODO: Populate expected IDs by:
+# 1. Running queries manually
+# 2. Inspecting results
+# 3. Identifying ground-truth relevant documents
+# 4. Updating expected.top1/top5/top10
