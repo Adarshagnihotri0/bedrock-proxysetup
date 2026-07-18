@@ -1,21 +1,27 @@
 /**
- * GraphitiProjectionBackend - Neo4j Projection Primitive
+ * Neo4jProjectionBackend - Neo4j Projection Primitive
  * 
- * Purpose: Project Knowledge to Neo4j graph
+ * Purpose: Project Knowledge to Neo4j graph using direct Cypher
  * Constraint: No abstractions, no runtime, just projection
  * 
  * VALIDATION ORDER:
  * 1. Single event projection
  * 2. 100 events → 100 nodes
- * 3. Delete, replay, semantic equality
+ * 3. Delete, replay, count equality
  * 4. Idempotency (replay twice, no duplicates)
- * 5. Crash recovery (project half, resume)
+ * 5. Partial projection continuation
+ * 
+ * NOT YET VALIDATED:
+ * - Crash recovery (persisted state)
+ * - Semantic equality verification
+ * - Concurrent projection workers
+ * - Performance at scale (50k+ events)
  */
 
 import neo4j, { Driver, Session } from 'neo4j-driver';
 import { Knowledge } from './types';
 
-export class GraphitiProjectionBackend {
+export class Neo4jProjectionBackend {
   private driver: Driver;
   private connected = false;
 

@@ -4,19 +4,25 @@
  * VALIDATION ORDER (from PRINCIPLES.md):
  * 1. Single event projection
  * 2. 100 events → 100 nodes
- * 3. Delete, replay, semantic equality
+ * 3. Delete, replay, count equality
  * 4. Idempotency (replay twice, no duplicates)
- * 5. Crash recovery (project half, resume)
+ * 5. Partial projection continuation
+ * 
+ * NOT YET VALIDATED:
+ * - Crash recovery (persisted state)
+ * - Semantic equality verification
+ * - Concurrent workers
+ * - Performance at scale
  */
 
-import { GraphitiProjectionBackend } from '../../src/projection/graphiti-backend';
+import { Neo4jProjectionBackend } from '../../src/projection/neo4j-backend';
 import { Knowledge } from '../../src/projection/types';
 
-describe('GraphitiProjectionBackend', () => {
-  let backend: GraphitiProjectionBackend;
+describe('Neo4jProjectionBackend', () => {
+  let backend: Neo4jProjectionBackend;
 
   beforeAll(async () => {
-    backend = new GraphitiProjectionBackend();
+    backend = new Neo4jProjectionBackend();
     await backend.connect();
   });
 
@@ -96,10 +102,10 @@ describe('GraphitiProjectionBackend', () => {
   });
 
   // ========================================
-  // TEST 3: Delete & Rebuild
+  // TEST 3: Delete & Rebuild (Count Equality)
   // ========================================
-  describe('TEST 3: Rebuild determinism', () => {
-    it('should rebuild semantically equivalent graph', async () => {
+  describe('TEST 3: Rebuild count equality', () => {
+    it('should rebuild with same node count', async () => {
       // Project 10 events
       const events: Knowledge[] = [];
       
@@ -217,9 +223,9 @@ describe('GraphitiProjectionBackend', () => {
   });
 
   // ========================================
-  // TEST 5: Crash Recovery
+  // TEST 5: Partial Projection Continuation
   // ========================================
-  describe('TEST 5: Crash recovery', () => {
+  describe('TEST 5: Partial projection', () => {
     it('should handle partial projection', async () => {
       const events: Knowledge[] = [];
       
