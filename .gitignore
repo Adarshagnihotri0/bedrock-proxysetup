@@ -11,5 +11,8 @@ archive/
 # Database migrations
 migrations/
 
+# Documentation
+docs/
+
 # OS files
 .DS_Store
