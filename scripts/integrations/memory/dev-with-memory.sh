@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Enhanced dev script for mcp1.0.0
+# Enhanced dev script for bedrock-proxy
 # Automatically starts memory system when you run npm run dev
 #
 
@@ -13,10 +13,10 @@ echo ""
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-MCP_DIR="$(dirname "$SCRIPT_DIR")"
+PROXY_DIR="$(dirname "$(dirname "$SCRIPT_DIR"))"
 MEMORY_DIR="/Users/adarshagnihotri/workspace/project/415bbbcd111a4a15ae5a9785d35276ef"
 
-cd "$MCP_DIR"
+cd "$PROXY_DIR"
 
 # ── 1. Start Neo4j for Memory System ──────────────────────────────────────────
 echo "[1/2] Starting Neo4j for Memory System..."
@@ -32,9 +32,9 @@ fi
 # ── 2. Set environment variables ─────────────────────────────────────────────
 echo "[2/2] Setting environment variables..."
 
-# Load .env from mcp1.0.0
-if [ -f "$MCP_DIR/.env" ]; then
-    export $(grep -v '^#' "$MCP_DIR/.env" | xargs)
+# Load .env from bedrock-proxy
+if [ -f "$PROXY_DIR/.env" ]; then
+    export $(grep -v '^#' "$PROXY_DIR/.env" | xargs)
 fi
 
 # Set memory system specific variables

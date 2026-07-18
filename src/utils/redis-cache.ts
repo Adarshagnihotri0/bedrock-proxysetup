@@ -43,7 +43,7 @@ async function flushBuffer(requestId: string): Promise<void> {
   const buffer = writeBuffer.get(requestId);
   if (!buffer || buffer.chunks.length === 0) return;
 
-  const prefix = process.env.REDIS_STREAM_PREFIX || 'mcp:stream:';
+  const prefix = process.env.REDIS_STREAM_PREFIX || 'bedrock:stream:';
   const key = `${prefix}${requestId}`;
 
   try {
@@ -106,7 +106,7 @@ export async function getCachedStream(requestId: string): Promise<string[]> {
   const client = getRedisClient();
   if (!client) return [];
 
-  const prefix = process.env.REDIS_STREAM_PREFIX || 'mcp:stream:';
+  const prefix = process.env.REDIS_STREAM_PREFIX || 'bedrock:stream:';
   const key = `${prefix}${requestId}`;
 
   try {
@@ -134,7 +134,7 @@ export async function clearStreamCache(requestId: string): Promise<void> {
   // Remove buffer entry
   writeBuffer.delete(requestId);
 
-  const prefix = process.env.REDIS_STREAM_PREFIX || 'mcp:stream:';
+  const prefix = process.env.REDIS_STREAM_PREFIX || 'bedrock:stream:';
   const key = `${prefix}${requestId}`;
 
   try {

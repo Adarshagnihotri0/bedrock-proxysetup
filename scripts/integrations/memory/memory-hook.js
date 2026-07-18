@@ -9,7 +9,7 @@ const { execSync } = require('child_process');
 const http = require('http');
 
 const MEMORY_DIR = '/Users/adarshagnihotri/workspace/project/415bbbcd111a4a15ae5a9785d35276ef';
-const AIFLOW_DIR = '/Users/adarshagnihotri/aiFlow/future/mcp1.0.0';
+const PROXY_DIR = '/Users/adarshagnihotri/Desktop/bedrock-proxy';
 
 function log(message) {
   console.log(`[Memory System] ${message}`);
@@ -66,7 +66,7 @@ async function setupMemorySystem(port) {
   if (!process.env.BEDROCK_MANTLE_API_KEY) {
     try {
       const fs = require('fs');
-      const envPath = `${AIFLOW_DIR}/.env`;
+      const envPath = `${PROXY_DIR}/.env`;
       if (fs.existsSync(envPath)) {
         const envContent = fs.readFileSync(envPath, 'utf-8');
         const match = envContent.match(/BEDROCK_MANTLE_API_KEY=(.+)/);

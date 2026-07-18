@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start Bedrock Proxy as lightweight background process
 
-cd /Users/adarshagnihotri/aiFlow/future/mcp1.0.0
+cd /Users/adarshagnihotri/Desktop/bedrock-proxy
 
 # Check if already running
 if pgrep -f "ts-node.*src/index.ts" > /dev/null; then
