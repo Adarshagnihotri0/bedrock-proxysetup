@@ -11,6 +11,7 @@
     "dev:notify": "npm run dev",
     "test": "jest",
     "test:watch": "jest --watch",
+    "evaluate:retrieval": "ts-node scripts/evaluate-retrieval.ts",
     "verify:audit": "ts-node scripts/verify-audit.ts",
     "test:canonical": "ts-node scratch/canonical-test.ts"
   },
@@ -23,7 +24,8 @@
     "nodemon": "^3.1.14",
     "pg": "^8.22.0",
     "uuid": "^14.0.1",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

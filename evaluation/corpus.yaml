@@ -1,0 +1,52 @@
+# Retrieval Evaluation Corpus
+#
+# Purpose: Measure retrieval quality systematically
+# Format: query + expected keywords + minimum hits
+#
+# Usage: npm run evaluate-retrieval
+
+queries:
+  - query: "canonical serialization replay"
+    description: "Query about canonical serialization and replay"
+    expected_keywords:
+      - canonical
+      - serialization
+      - replay
+      - hash
+    min_hits: 3
+
+  - query: "neo4j projection knowledge"
+    description: "Query about Neo4j projection"
+    expected_keywords:
+      - projection
+      - neo4j
+      - knowledge
+      - graph
+    min_hits: 3
+
+  - query: "validation idempotency replay"
+    description: "Query about validation and idempotency"
+    expected_keywords:
+      - validation
+      - idempotency
+      - replay
+      - constraint
+    min_hits: 3
+
+  - query: "embedding vector search"
+    description: "Query about embeddings and vector search"
+    expected_keywords:
+      - embedding
+      - vector
+      - search
+      - similarity
+    min_hits: 3
+
+  - query: "knowledge retrieval pipeline"
+    description: "Query about retrieval pipeline"
+    expected_keywords:
+      - retrieval
+      - pipeline
+      - query
+      - knowledge
+    min_hits: 3
