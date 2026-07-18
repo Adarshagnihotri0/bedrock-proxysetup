@@ -222,28 +222,122 @@ getProvenance(knowledgeId: string): {
 
 ## Phase 2A Implementation Plan
 
-### Step 1: Retrieval API
-- `retrieveKnowledge(query, options)` → `Knowledge[]`
-- Vector search + PostgreSQL hydration
-- No ranking, no context assembly (just raw retrieval)
+### Step 1: Retrieval API (single responsibility)
+```typescript
+interface RetrievalService {
+  retrieve(query: string, options?: {
+    limit?: number;
+    minScore?: number;
+  }): Promise<RetrievedKnowledge[]>;
+}
+```
 
-### Step 2: Ranking
-- Multi-factor scoring
-- Confidence and recency boosts
-- Configurable weights
+**Pipeline:**
+```
+query → embedding → Neo4j vector search → top-K IDs → hydrate from PostgreSQL → return
+```
 
-### Step 3: Context Assembly
-- Format knowledge + evidence + provenance
-- Token counting
-- Truncation strategies
+**What it does NOT do:**
+- No LLM
+- No prompt construction
+- No ranking heuristics (yet)
+- No summarization
 
-### Step 4: End-to-End Pipeline
-- Wire retrieval → ranking → context → LLM
+**This is the stable foundation.**
+
+---
+
+### Step 2: Evaluation Corpus (before optimization)
+**Create test set:**
+- 20-50 queries with expected knowledge IDs
+- Committed to repository
+- Enables objective tuning
+
+**Example:**
+```json
+{
+  "query": "Who implemented canonical serialization?",
+  "expected": ["hash_X", "hash_Y"],
+  "retrieved": ["hash_X", "hash_Z", "hash_W"]
+}
+```
+
+**Without this, every ranking tweak is just intuition.**
+
+---
+
+### Step 3: Ranking (only after evaluation)
+```typescript
+score = 0.70 * vectorSimilarity 
+      + 0.20 * confidence 
+      + 0.10 * recency
+```
+
+**Tune weights against evaluation set, not guesses.**
+
+---
+
+### Step 4: Context Assembly
+- Convert `Knowledge[]` to `LLMContext`
+- Token budget enforcement
+- Format: Fact, Evidence, Confidence, Source
+
+**This layer knows about tokens. Retrieval does not.**
+
+---
+
+### Step 5: Answer Generation
+- Introduce LLM (Claude 3.5 Sonnet)
+- Wire: retrieval → ranking → context → LLM
 - Return answer with provenance
 
 ---
 
-## What This Enables
+### Step 6: Provenance Verification
+**Verify citation chain:**
+```
+Answer sentence → Knowledge node → Evidence row → Conversation trace
+```
+
+**If you can't prove the chain, don't emit the citation.**
+
+---
+
+## Retrieval Pipeline (Corrected)
+
+**Wrong order (previous):**
+```
+Vector Search → Ranking → Hydration
+```
+
+**Right order:**
+```
+Vector Search → Hydrate → Ranking
+```
+
+**Reason:** Ranking needs fields that Neo4j doesn't have:
+- Evidence count
+- Timestamps
+- Repository metadata
+- Confidence scores
+- Provenance
+
+Hydrate first, then compute ranking with complete knowledge objects.
+
+---
+
+## Success Criteria for Phase 2A
+
+| Capability | Success Criterion |
+|------------|-------------------|
+| Retrieval | Returns relevant top-K knowledge for test corpus |
+| Hydration | Every Neo4j hit maps to a PostgreSQL record |
+| Ranking | Produces deterministic ordering for identical inputs |
+| Context | Fits within configurable token budget |
+| Provenance | Every returned fact links to evidence |
+| Evaluation | Test corpus + metrics committed to repository |
+
+**Exit condition:** First end-to-end query path through the system with measurable retrieval quality.
 
 **Immediate:**
 - Question answering over codebase knowledge
