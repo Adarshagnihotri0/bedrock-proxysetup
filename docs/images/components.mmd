@@ -1,0 +1,45 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563eb', 'secondaryColor': '#f1f5f9', 'tertiaryColor': '#e2e8f0', 'lineColor': '#64748b', 'fontSize': '14px' }}}%%
+graph TB
+    subgraph Live["Active Components (Live)"]
+        direction TB
+        ENTRY[index.ts<br/>Entry Point]
+        SERVER[server.ts<br/>Express Routes]
+        BEDROCK[bedrock.ts<br/>Mantle Integration]
+        ADAPT[adapters.ts<br/>Model Adapters]
+        TELEGRAM[telegram-polling.ts<br/>Notifications]
+        UTILS[utils/<br/>logger.ts<br/>redis-cache.ts]
+        
+        ENTRY --> SERVER
+        SERVER --> BEDROCK
+        SERVER --> ADAPT
+        SERVER --> TELEGRAM
+        BEDROCK --> UTILS
+        ADAPT --> UTILS
+    end
+    
+    subgraph Optional["Optional Services"]
+        RD[("Redis<br/>Cache")]
+        DB[("PostgreSQL<br/>Trace Storage")]
+    end
+    
+    subgraph Dormant["Built but Not Wired"]
+        direction TB
+        MW[middleware/<br/>context.ts]
+        SVC[services/<br/>message-service.ts<br/>trace-service.ts]
+        DBLAYER[db/<br/>client.ts<br/>save-trace.ts]
+        
+        MW -.->|Not registered| SERVER
+        SVC -.->|Not imported| SERVER
+        DBLAYER -.->|Not connected| DB
+    end
+    
+    BEDROCK -.->|Optional| RD
+    TELEGRAM --> TGAPI["Telegram API"]
+    
+    classDef live fill:#10b981,stroke:#059669,color:#fff
+    classDef optional fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef dormant fill:#94a3b8,stroke:#64748b,color:#fff,stroke-dasharray: 5 5
+    
+    class ENTRY,SERVER,BEDROCK,ADAPT,TELEGRAM,UTILS live
+    class RD,DB,TGAPI optional
+    class MW,SVC,DBLAYER dormant

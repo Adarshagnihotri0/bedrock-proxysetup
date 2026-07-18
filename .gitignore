@@ -11,8 +11,10 @@ archive/
 # Database migrations
 migrations/
 
-# Documentation
-docs/
+# Documentation - keep images and new docs
+docs/architecture/
+docs/design-docs/
+docs/images/diagram*.png
 
 # OS files
 .DS_Store

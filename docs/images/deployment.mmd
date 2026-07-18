@@ -1,0 +1,36 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563eb', 'secondaryColor': '#f1f5f9', 'tertiaryColor': '#e2e8f0', 'lineColor': '#64748b', 'fontSize': '14px' }}}%%
+graph LR
+    subgraph Port2999["Process A - Port 2999"]
+        direction TB
+        P1["Express Server"]
+        P1TG["Telegram: Disabled"]
+        P1 --> P1TG
+    end
+    
+    subgraph Port3000["Process B - Port 3000"]
+        direction TB
+        P2["Express Server"]
+        P2TG["Telegram: Enabled + Polling"]
+        P2 --> P2TG
+    end
+    
+    subgraph External["External Services"]
+        direction TB
+        BEDROCK["AWS Bedrock Mantle"]
+        TGBOT["Telegram Bot API"]
+    end
+    
+    P1 -->|HTTP| BEDROCK
+    P2 -->|HTTP| BEDROCK
+    P2TG -->|HTTP| TGBOT
+    
+    C1["VS Code<br/>Copilot"] -->|Port 2999| P1
+    C2["OpenHands<br/>Agent"] -->|Port 3000| P2
+    
+    classDef process fill:#2563eb,stroke:#1e40af,color:#fff
+    classDef external fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef client fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    
+    class P1,P1TG,P2,P2TG process
+    class BEDROCK,TGBOT external
+    class C1,C2 client

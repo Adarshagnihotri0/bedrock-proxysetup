@@ -1,0 +1,55 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#2563eb', 'secondaryColor': '#f1f5f9', 'tertiaryColor': '#e2e8f0', 'lineColor': '#64748b', 'fontSize': '14px' }}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant P as Bedrock Proxy
+    participant B as Bedrock Mantle
+    participant R as Redis (Optional)
+    participant T as Telegram (Optional)
+    
+    Note over C,T: Non-Streaming Request
+    
+    C->>+P: POST /v1/chat/completions
+    P->>P: Validate request
+    P->>P: Authentication check
+    
+    alt Cache hit (Redis enabled)
+        P->>R: Check cache
+        R-->>P: Cached response
+        P-->>C: Return cached response
+    else Cache miss or Redis disabled
+        P->>P: Translate model ID
+        P->>+B: POST /anthropic/v1/messages
+        B-->>-P: Model response
+        P->>P: Transform to OpenAI format
+        
+        opt Redis enabled
+            P->>R: Cache response
+        end
+        
+        opt Telegram enabled
+            P->>T: Send notification
+        end
+        
+        P-->>-C: Return response
+    end
+    
+    Note over C,T: Streaming Request
+    
+    C->>+P: POST /v1/chat/completions (stream: true)
+    P->>P: Validate request
+    P->>+B: POST with streaming
+    loop SSE chunks
+        B-->>P: Data chunk
+        P->>P: Transform chunk
+        opt Redis enabled
+            P->>R: Cache chunk
+        end
+        P-->>C: SSE chunk
+    end
+    B-->>-P: Stream complete
+    P-->>-C: Stream end
+    
+    opt Telegram enabled
+        P->>T: Send completion notification
+    end

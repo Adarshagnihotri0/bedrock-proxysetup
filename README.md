@@ -1,347 +1,391 @@
 # Bedrock Proxy
 
-A Node.js/Express proxy server that enables AI clients to access GLM models through AWS Bedrock Mantle.
+<p align="center">
+  <strong>OpenAI & Anthropic compatible proxy for AWS Bedrock Mantle.</strong>
+</p>
 
-## What is This Repository?
+<p align="center">
+  Run existing AI applications on AWS Bedrock without changing your code.
+</p>
 
-This is a **Node.js/Express proxy server** that:
-- Routes LLM requests to AWS Bedrock Mantle endpoint
-- Provides OpenAI-compatible API endpoints
-- Runs on configurable ports to serve different clients
-- Integrates with Graphiti memory system for persistent AI memory
-- Supports Telegram notifications for monitoring
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="Architecture" width="600">
+</p>
 
-## Architecture
+---
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Bedrock Proxy                             │
-│                                                              │
-│          ┌──────────────────┐                              │
-│          │   Port 3000       │                              │
-│          │  (Configurable)   │                              │
-│          │                   │                              │
-│          │ Telegram: Optional│                              │
-│          └────────┬─────────┘                              │
-│                   │                                          │
-│           ┌───────▼────────┐                               │
-│           │ Express Server │                               │
-│           │  src/index.ts  │                               │
-│           └───────┬────────┘                               │
-│                   │                                          │
-│           ┌───────▼────────┐                               │
-│           │ Bedrock Mantle  │                               │
-│           │  (AWS API)      │                               │
-│           └────────────────┘                               │
-└─────────────────────────────────────────────────────────────┘
-```
+## Overview
+
+Bedrock Proxy is a lightweight compatibility layer that translates OpenAI and Anthropic API requests into AWS Bedrock Mantle requests.
+
+Instead of modifying your applications, simply point your existing SDKs to this proxy.
+
+It also provides optional integrations for persistent memory, execution tracing, caching, monitoring, and observability.
+
+---
 
 ## Features
 
-- **OpenAI-Compatible API**: Drop-in replacement for OpenAI API
-- **Anthropic-Compatible**: Supports `/v1/messages` endpoint
-- **Telegram Integration**: Optional notifications for monitoring
-- **Memory System**: Graphiti memory integration support
-- **PostgreSQL Persistence**: Execution trace storage
-- **Redis Caching**: Response caching for performance
+| Feature | Description |
+|---------|-------------|
+| OpenAI Compatible | Supports `/v1/chat/completions` |
+| Anthropic Compatible | Supports `/v1/messages` |
+| AWS Bedrock Mantle | Enterprise model hosting |
+| Streaming | Real-time response streaming |
+| Graphiti Memory | Long-term AI memory (optional) |
+| PostgreSQL | Execution history (optional) |
+| Redis | Response caching (optional) |
+| Telegram | Monitoring & notifications (optional) |
+| Health Checks | `/health`, `/ready`, `/alive` endpoints |
+| TypeScript | Fully typed codebase |
+
+---
+
+## Architecture
+
+```text
+                         AI Applications
+                     (OpenAI SDK / Claude SDK)
+
+                              │
+                              │
+                              ▼
+
+                    ┌─────────────────────┐
+                    │    Bedrock Proxy    │
+                    ├─────────────────────┤
+                    │ Request Validation  │
+                    │ Authentication      │
+                    │ Model Translation   │
+                    │ Streaming           │
+                    │ Memory Integration  │
+                    │ Logging             │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+
+                      AWS Bedrock Mantle
+                               │
+                               ▼
+
+                          Foundation Models
+                            (GLM, Claude)
+```
+
+---
+
+## Why Use This?
+
+Most AI tooling today assumes OpenAI or Anthropic APIs.
+
+AWS Bedrock provides enterprise-grade model hosting, but many applications don't support it natively.
+
+Bedrock Proxy bridges that gap.
+
+Your applications continue using familiar APIs while every request is transparently routed through AWS Bedrock.
+
+---
+
+## Supported APIs
+
+### OpenAI
+
+```
+POST /v1/chat/completions
+```
+
+Compatible with:
+
+- OpenAI SDK
+- LangChain
+- OpenHands
+- Continue.dev
+- RooCode
+- Cursor
+- Cline
+- Any OpenAI-compatible client
+
+### Anthropic
+
+```
+POST /v1/messages
+```
+
+Compatible with Claude SDK clients.
+
+---
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Clone
+
+```bash
+git clone https://github.com/<username>/bedrock-proxy.git
+cd bedrock-proxy
+```
+
+### Install
+
 ```bash
 npm install
 ```
 
-### 2. Configure Environment
+### Configure
+
 ```bash
 cp .env.example .env
-# Edit .env with your configuration
 ```
 
-### 3. Start the Proxy
-```bash
-# Development mode
-npm run dev
+Example `.env`:
 
-# Production mode
+```env
+BEDROCK_MANTLE_API_KEY=xxxxxxxx
+AWS_REGION=us-east-1
+PORT=3000
+```
+
+### Start
+
+Development:
+
+```bash
+npm run dev
+```
+
+Production:
+
+```bash
 npm run build
 npm start
 ```
 
-### 4. Verify It's Running
+---
+
+## Health Check
+
 ```bash
-curl -s http://localhost:3000/health
+curl http://localhost:3000/health
 ```
 
-### 5. Test LLM Requests
+Response:
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+---
+
+## Example Usage
+
+### OpenAI SDK
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+    apiKey: "dummy",
+    baseURL: "http://localhost:3000/v1"
+});
+
+const response = await client.chat.completions.create({
+    model: "glm-5",
+    messages: [
+        { role: "user", content: "Hello" }
+    ]
+});
+```
+
+### curl
+
 ```bash
 curl -X POST http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer test" \
-  -d '{"model": "zai.glm-5", "messages": [{"role": "user", "content": "hello"}], "max_tokens": 10}'
+  -d '{"model": "zai.glm-5", "messages": [{"role": "user", "content": "hello"}], "max_tokens": 100}'
 ```
 
-## Endpoints
+No application code changes are required besides updating the base URL.
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/v1/chat/completions` | POST | OpenAI-compatible chat |
-| `/v1/messages` | POST | Anthropic-compatible messages |
-| `/ready` | GET | Readiness probe |
-| `/alive` | GET | Liveness probe |
+---
 
-## Environment Variables
+## Optional Integrations
 
-### Required Configuration
+### Graphiti
 
-```bash
-# AWS Bedrock Mantle API key (REQUIRED)
-BEDROCK_MANTLE_API_KEY=your_api_key_here
+Persistent long-term memory:
 
-# AWS region where Bedrock is enabled
-AWS_REGION=ap-south-1
+- Repository knowledge
+- Semantic search
+- Entity extraction
+- Relationship tracking
 
-# Port this proxy listens on
-PORT=3000
-```
+Set `ENABLE_MEMORY_INTEGRATION=true` in environment.
 
-### Optional Integrations
+### PostgreSQL
 
-```bash
-# Telegram Bot Integration (optional)
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=your_chat_id_here
-TELEGRAM_ENABLED=true
+Stores:
 
-# Memory System Integration (optional)
-ENABLE_MEMORY_INTEGRATION=true
+- Request history
+- Execution traces
+- Analytics
+- Audit logs
 
-# PostgreSQL for Execution Traces (optional)
-DATABASE_URL="postgresql://user@localhost:5432/dbname"
+Set `DATABASE_URL=postgresql://...` in environment.
 
-# Redis cache (optional)
-REDIS_URL=redis://localhost:6379
-```
+### Redis
+
+Provides:
+
+- Response caching
+- Session storage
+- Rate limiting
+
+Set `REDIS_URL=redis://...` in environment.
+
+### Telegram
+
+Receive:
+
+- Startup notifications
+- Crash alerts
+- Health reports
+
+Set `TELEGRAM_ENABLED=true` and `TELEGRAM_BOT_TOKEN` in environment.
+
+---
 
 ## Project Structure
 
 ```
 bedrock-proxy/
 ├── src/
-│   ├── index.ts              # Main entry point
-│   ├── server.ts             # Express server setup
-│   ├── bedrock.ts            # Bedrock API integration
-│   ├── telegram-polling.ts   # Telegram notification service
-│   ├── adapters.ts           # API adapters
-│   ├── db/
-│   │   ├── client.ts         # Database client
-│   │   ├── save-trace.ts     # Trace persistence (sync)
-│   │   └── save-trace-async.ts # Trace persistence (async)
-│   ├── middleware/
-│   │   └── context.ts        # Request context middleware
-│   ├── services/
-│   │   ├── message-service.ts # Message handling
-│   │   └── trace-service.ts   # Trace management
-│   ├── types/
-│   │   ├── api.ts            # API type definitions
-│   │   ├── context.ts        # Context types
-│   │   └── trace.ts          # Trace types
-│   └── utils/
-│       ├── logger.ts         # Logging utilities
-│       ├── prompt-builder.ts  # Prompt construction
-│       └── redis-cache.ts    # Redis caching
-├── scripts/
-│   ├── integrations/
-│   │   ├── memory/           # Memory system integration
-│   │   │   ├── dev-with-memory.sh
-│   │   │   └── memory-hook.js
-│   │   └── telegram/         # Telegram bot utilities
-│   │       └── get-telegram-chat-id.js
-│   └── operations/           # Operational scripts
-│       ├── dev-with-notify.sh
-│       ├── openhands-start.sh
-│       ├── proxy-start.sh
-│       ├── proxy-status.sh
-│       ├── proxy-stop.sh
-│       └── start-dual-ports.sh
-├── .env.example              # Environment template
-├── package.json
-├── tsconfig.json
-└── README.md                 # This file
+│   ├── index.ts          # Entry point
+│   ├── server.ts         # Express routes
+│   ├── bedrock.ts        # Bedrock integration
+│   ├── adapters.ts       # Model adapters
+│   ├── telegram-polling.ts
+│   ├── db/               # Database layer
+│   ├── middleware/       # Request middleware
+│   ├── services/         # Business logic
+│   ├── types/            # TypeScript types
+│   └── utils/            # Utilities
+├── migrations/           # SQL migrations
+├── scripts/              # Operational scripts
+├── docs/                 # Documentation
+└── archive/              # Historical docs
 ```
 
-## Integration Details
+---
 
-### VS Code / GitHub Copilot
+## Configuration
 
-Configure VS Code to use the proxy:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `BEDROCK_MANTLE_API_KEY` | Yes | AWS Bedrock API key |
+| `AWS_REGION` | Yes | AWS region |
+| `PORT` | No | Server port (default: 3000) |
+| `DATABASE_URL` | No | PostgreSQL connection string |
+| `REDIS_URL` | No | Redis connection string |
+| `TELEGRAM_ENABLED` | No | Enable Telegram notifications |
+| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token |
+| `TELEGRAM_CHAT_ID` | No | Telegram chat ID |
+| `ENABLE_MEMORY_INTEGRATION` | No | Enable Graphiti memory |
 
-```json
-{
-  "github.copilot.advanced": {
-    "debug.overrideProxy": "http://localhost:3000"
-  }
-}
-```
+---
 
-### OpenHands
+## Endpoints
 
-Configure OpenHands in `~/.openhands/settings.json`:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/ready` | GET | Readiness probe |
+| `/alive` | GET | Liveness probe |
+| `/v1/chat/completions` | POST | OpenAI-compatible chat |
+| `/v1/messages` | POST | Anthropic-compatible messages |
+| `/v1/models` | GET | List available models |
 
-```json
-{
-  "agent_settings": {
-    "llm": {
-      "model": "openai/zai.glm-5",
-      "base_url": "http://localhost:3000/v1",
-      "api_key": "test"
-    }
-  }
-}
-```
-
-### Memory System Integration
-
-The proxy can integrate with Graphiti memory system:
-
-```bash
-# Start with memory integration
-scripts/integrations/memory/dev-with-memory.sh
-```
-
-**Memory Components:**
-- Neo4j Database: bolt://localhost:7687
-- Graphiti Memory: Persistent AI memory
-- Auto-initialized when proxy starts
-
-See: https://github.com/Adarshagnihotri0/openhands-graphiti-memory
+---
 
 ## Development
 
-### Available Scripts
-
 ```bash
-# Development mode with auto-reload
+# Run in development mode
 npm run dev
 
-# Build TypeScript to JavaScript
+# Build for production
 npm run build
 
-# Run production build
-npm start
+# Run linter
+npm run lint
 
 # Run tests
 npm test
 ```
 
-### Development Tools
+---
 
-```typescript
-// Start with memory integration
-import { autoSetup } from './scripts/integrations/memory/memory-hook';
+## Deployment
 
-autoSetup().catch(() => {
-  // Memory hook is optional
-});
-```
-
-## Troubleshooting
-
-### Port Already in Use
+### Docker
 
 ```bash
-# Find process using port
-lsof -i :3000
-
-# Kill process
-lsof -ti :3000 | xargs kill -9
+docker build -t bedrock-proxy .
+docker run -p 3000:3000 bedrock-proxy
 ```
 
-### Connection Issues
+### Docker Compose
 
-```bash
-# Check if proxy is running
-curl -s http://localhost:3000/health
-
-# Check logs
-tail -f logs/proxy.log
+```yaml
+version: '3.8'
+services:
+  bedrock-proxy:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - BEDROCK_MANTLE_API_KEY=${BEDROCK_MANTLE_API_KEY}
+      - AWS_REGION=${AWS_REGION}
 ```
 
-### Telegram Issues
+---
 
-- Check if `TELEGRAM_ENABLED=true` in `.env`
-- Verify bot token and chat ID
-- Test with: `scripts/integrations/telegram/get-telegram-chat-id.js`
+## Roadmap
 
-### Database Issues
+- [ ] Multi-model routing
+- [ ] Cost tracking dashboard
+- [ ] Request replay functionality
+- [ ] Prometheus metrics
+- [ ] OpenTelemetry support
+- [ ] Authentication providers
+- [ ] Multi-region support
 
-```bash
-# Check PostgreSQL connection
-psql $DATABASE_URL -c "SELECT 1"
+---
 
-# Check Redis connection
-redis-cli -u $REDIS_URL ping
-```
+## Contributing
 
-## Operation Scripts
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-Convenient scripts for managing the proxy:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Open a pull request
 
-```bash
-# Start proxy
-scripts/operations/proxy-start.sh
-
-# Check proxy status
-scripts/operations/proxy-status.sh
-
-# Stop proxy
-scripts/operations/proxy-stop.sh
-
-# Start dual-port setup (ports 2999 & 3000)
-scripts/operations/start-dual-ports.sh
-
-# Development with notifications
-scripts/operations/dev-with-notify.sh
-```
-
-## Related Repositories
-
-- **Memory System**: https://github.com/Adarshagnihotri0/openhands-graphiti-memory
-  - Graphiti memory integration
-  - Neo4j graph database
-  
-- **OpenHands**: https://github.com/All-Hands-AI/OpenHands
-  - Autonomous AI agent
-  - Uses proxy for LLM calls
-
-## Security
-
-### Important
-
-- **Never commit `.env` file** - It's excluded in `.gitignore`
-- Always use `.env.example` for sharing configuration
-- Rotate API keys if accidentally exposed
-- Use environment-specific credentials
-
-### Excluded from Git
-
-- `.env` - Environment variables
-- `.vscode/` - Editor settings
-- `node_modules/` - Dependencies
-- `dist/` - Build output
-- `archive/` - Archived files
-- `migrations/` - Database migrations
-- `docs/` - Documentation
+---
 
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) for details.
 
-## Support
+---
 
-For issues:
-1. Check logs: `tail -f logs/proxy.log`
-2. Check processes: `lsof -i :3000`
-3. Restart: `npm run dev`
-4. Check memory system (if using): `scripts/integrations/memory/dev-with-memory.sh`
+## Acknowledgements
+
+This project builds on the excellent ecosystem around:
+
+- OpenAI API
+- Anthropic API
+- AWS Bedrock
+- Express
+- TypeScript
