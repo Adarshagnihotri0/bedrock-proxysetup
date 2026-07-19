@@ -248,6 +248,9 @@ query → embedding → Neo4j vector search → top-K IDs → hydrate from Postg
 ---
 
 ### Step 2: Evaluation Corpus (before optimization)
+
+**Reference:** See [EVALUATION_FRAMEWORK.md](EVALUATION_FRAMEWORK.md) for complete evaluation methodology.
+
 **Create test set:**
 - 20-50 queries with expected knowledge IDs
 - Committed to repository

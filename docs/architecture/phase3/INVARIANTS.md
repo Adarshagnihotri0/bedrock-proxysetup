@@ -4,6 +4,8 @@
 **Date**: 2026-07-18  
 **Enforcement**: All implementations must preserve these invariants
 
+**System Context:** Phase 3 invariants complement the [System-Wide Invariants](../INVARIANTS.md). Both must be upheld.
+
 ---
 
 ## G1: Deterministic Projection

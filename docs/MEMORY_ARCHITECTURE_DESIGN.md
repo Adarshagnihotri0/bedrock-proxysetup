@@ -62,6 +62,8 @@ Build a **knowledge-based memory system** that:
 4. **Feedback loops** - System learns from outcomes
 5. **Graceful degradation** - Memory failures don't crash agent
 
+**Reference:** All implementations must uphold system invariants documented in [INVARIANTS.md](INVARIANTS.md).
+
 ---
 
 ## Phase 0: Foundation Analysis
@@ -285,6 +287,8 @@ grep -r "from '../graphiti" src/pipelines/
 ### Design Goal
 
 Collect **facts from execution**, not conversations.
+
+**Reference:** For evidence serialization and content-addressing, see [Canonical Protocol Integration](CANONICAL_PROTOCOL_INTEGRATION.md).
 
 ### Evidence Sources
 
@@ -1966,6 +1970,8 @@ describe('Graph Integrity', () => {
 ### Design Goal
 
 Retrieve the **smallest useful knowledge set** in < 300ms.
+
+**Reference:** For the complete query-to-answer pipeline specification, see [QUERY_TO_ANSWER_PIPELINE.md](QUERY_TO_ANSWER_PIPELINE.md).
 
 ### Retrieval Query Types
 

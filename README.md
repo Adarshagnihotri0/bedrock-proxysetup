@@ -20,7 +20,7 @@
 
 - **Version**: 1.0.0
 - **Verification**: 13/13 tests passed
-- **Documentation**: [`phase1/`](./phase1/)
+- **Documentation**: [`docs/architecture/phase1/`](./docs/architecture/phase1/)
 
 Phase 1 provides:
 - Canonical evidence serialization (RFC-0001 compliant)

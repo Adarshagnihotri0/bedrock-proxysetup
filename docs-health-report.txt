@@ -1,0 +1,67 @@
+================================================================================
+DOCUMENTATION HEALTH REPORT
+================================================================================
+
+1. REPOSITORY INTEGRITY
+--------------------------------------------------------------------------------
+   ❌ Broken Links (5 found)
+      README.md:402 → LICENSE
+      docs/architecture/phase2/INVARIANTS.md:5 → ../INVARIANTS.md
+      ... and 3 more
+   ✅ No broken anchors
+   ✅ No duplicate ids
+   ✅ No canonical conflicts
+
+2. INFORMATION ARCHITECTURE
+--------------------------------------------------------------------------------
+   Strongly Connected Components:
+      Main graph: 1 docs
+      Cluster 1: 1 docs
+      Cluster 2: 1 docs
+      Cluster 3: 1 docs
+      Cluster 4: 1 docs
+   Reachability: 29%
+   Unexpected Orphans: 35
+   Unexpected Dead Ends: 60
+   Bus Factor: 0%
+
+3. DOCUMENTATION QUALITY
+--------------------------------------------------------------------------------
+   Metadata Completeness:
+      owner           0%
+      status          0%
+      type            0%
+      last-reviewed   0%
+   Ownership Maturity:
+      Individual: 0
+      Team: 0
+   Review Cadence:
+      Fresh (< 90d): 0/68
+      Stale: 0/68
+      Missing: 68/68
+   Navigation: 9%
+
+4. COVERAGE
+--------------------------------------------------------------------------------
+   Packages: 0/16
+   Commands: 2/14
+
+5. VALIDITY
+--------------------------------------------------------------------------------
+   ⚠️ 2 drift issues:
+      Script: start: docs=Not documented, code=Exists
+      Script: test: docs=Not documented, code=Exists
+
+6. DOCUMENTATION DEBT
+--------------------------------------------------------------------------------
+   Total debt items: 70
+
+   Missing metadata: 68
+   Missing owner: 0
+   Needs review: 0
+   Stale documents: 0
+   Validity issues: 2
+
+================================================================================
+❌ FAIL - Repository integrity issues must be fixed
+================================================================================

@@ -14,7 +14,8 @@
     "evaluate:retrieval": "ts-node scripts/evaluate-retrieval.ts",
     "evaluate:retrieval-v2": "ts-node scripts/evaluate-retrieval-v2.ts",
     "verify:audit": "ts-node scripts/verify-audit.ts",
-    "test:canonical": "ts-node scratch/canonical-test.ts"
+    "test:canonical": "ts-node scratch/canonical-test.ts",
+    "docs:health": "node scripts/docs-health.js"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.758.0",
@@ -25,8 +26,7 @@
     "nodemon": "^3.1.14",
     "pg": "^8.22.0",
     "uuid": "^14.0.1",
-    "winston": "^3.19.0",
-    "yaml": "^2.9.0"
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -40,6 +40,7 @@
     "pg-query-stream": "^4.16.0",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "yaml": "^2.9.0"
   }
 }

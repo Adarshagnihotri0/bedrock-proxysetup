@@ -2,6 +2,8 @@
 
 These invariants form the "constitution" of Phase 2. Every implementation and test must be traceable to one of these guarantees.
 
+**System Context:** Phase 2 invariants complement the [System-Wide Invariants](../INVARIANTS.md). Both must be upheld.
+
 ---
 
 ## Invariant K1: Deterministic Extraction

@@ -136,6 +136,8 @@ if (pgCheck.rows.length !== 1) {
 
 **Why:** Enables safe rebuild from source of truth.
 
+**Reference:** [Canonical Protocol Specification](CANONICAL_PROTOCOL_INTEGRATION.md)
+
 **Enforcement:** Property test
 
 **Validation:** `scripts/milestone-2-semantic-v2.ts`
@@ -152,6 +154,8 @@ if (pgCheck.rows.length !== 1) {
 **What:** Canonical serialization is preserved after delete + replay.
 
 **Why:** Proves graph can be rebuilt from PostgreSQL.
+
+**Reference:** [Canonical Protocol Specification](CANONICAL_PROTOCOL_INTEGRATION.md)
 
 **Enforcement:** Canonical serialization test
 
@@ -181,8 +185,3 @@ If an invariant is violated:
 1. **Fail fast** - throw error, reject operation
 2. **Log context** - include relevant IDs, values, state
 3. **Don't silent-fail** - never allow partial/inconsistent state
-
----
-
-**Generated:** 2026-07-19
-**Status:** Documenting existing invariants, planning tests for pending ones

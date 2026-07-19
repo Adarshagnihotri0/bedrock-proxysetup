@@ -16,3 +16,8 @@ docs/images/diagram*.png
 
 # OS files
 .DS_Store
+
+# Documentation governance outputs (generated)
+docs-health.json
+docs-health.sarif.json
+.docs-health-trends.json
