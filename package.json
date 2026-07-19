@@ -13,6 +13,9 @@
     "test:watch": "jest --watch",
     "evaluate:retrieval": "ts-node scripts/evaluate-retrieval.ts",
     "evaluate:retrieval-v2": "ts-node scripts/evaluate-retrieval-v2.ts",
+    "validate:corpus": "ts-node scripts/validate-corpus.ts",
+    "validate:vision": "ts-node scripts/validate-vision-v2.ts",
+    "ingest": "ts-node src/cli/ingest.ts",
     "verify:audit": "ts-node scripts/verify-audit.ts",
     "test:canonical": "ts-node scratch/canonical-test.ts",
     "docs:health": "node scripts/docs-health.js"

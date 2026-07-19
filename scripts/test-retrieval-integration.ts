@@ -16,7 +16,7 @@
 import neo4j from 'neo4j-driver';
 import { Pool } from 'pg';
 import { VectorRetrievalService } from '../src/retrieval/vector-retrieval';
-import { MockEmbeddingProvider } from '../src/embedding/mock-provider';
+import { BedrockEmbeddingProvider } from '../src/embedding/bedrock-provider';
 
 const NEO4J_URI = process.env.NEO4J_URI || 'bolt://localhost:7687';
 const NEO4J_USER = process.env.NEO4J_USER || 'neo4j';
@@ -27,7 +27,7 @@ async function testRetrievalPipeline() {
 
   const driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
   const pgPool = new Pool({ database: 'bedrock_proxy', user: 'adarshagnihotri' });
-  const provider = new MockEmbeddingProvider();
+  const provider = new BedrockEmbeddingProvider();
 
   const retrievalService = new VectorRetrievalService(driver, pgPool, (text) => provider.embed(text));
 

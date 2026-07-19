@@ -11,7 +11,7 @@
 
 import neo4j from 'neo4j-driver';
 import { Pool } from 'pg';
-import { MockEmbeddingProvider } from '../src/embedding/mock-provider';
+import { BedrockEmbeddingProvider } from '../src/embedding/bedrock-provider';
 import { backfillEmbeddings } from './embeddings-backfill';
 
 const NEO4J_URI = process.env.NEO4J_URI || 'bolt://localhost:7687';
@@ -23,7 +23,7 @@ async function testIdempotency() {
   
   const driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
   const pgPool = new Pool({ database: 'bedrock_proxy', user: 'adarshagnihotri' });
-  const provider = new MockEmbeddingProvider();
+  const provider = new BedrockEmbeddingProvider();
 
   try {
     // Run 1: populate embeddings

@@ -67,17 +67,18 @@ interface QueryResult {
 }
 
 function computeNDCG(retrieved: string[], relevantHashes: Map<string, number>): number {
+  // Canonical DCG formula: (2^grade - 1) / log2(rank + 1)
   let dcg = 0;
   for (let i = 0; i < retrieved.length; i++) {
     const grade = relevantHashes.get(retrieved[i]) || 0;
-    dcg += grade / Math.log2(i + 2); // i+2 because log2(1) = 0
+    dcg += (Math.pow(2, grade) - 1) / Math.log2(i + 2);
   }
   
   // IDCG: ideal DCG (all relevant docs in perfect order)
   const idealGrades = Array.from(relevantHashes.values()).sort((a, b) => b - a);
   let idcg = 0;
   for (let i = 0; i < Math.min(idealGrades.length, retrieved.length); i++) {
-    idcg += idealGrades[i] / Math.log2(i + 2);
+    idcg += (Math.pow(2, idealGrades[i]) - 1) / Math.log2(i + 2);
   }
   
   return idcg > 0 ? dcg / idcg : 0;
@@ -102,7 +103,7 @@ function computeMetrics(
   const recall5 = relevant.filter(r => retrieved_ids.slice(0, 5).includes(r.hash)).length / relevant.length;
   
   // Recall@10 (fraction of relevant docs in top 10)
-  const recall10 = relevant.filter(r => retrieved_ids.includes(r.hash)).length / relevant.length;
+  const recall10 = relevant.filter(r => retrieved_ids.slice(0, 10).includes(r.hash)).length / relevant.length;
   
   // Reciprocal Rank (1/position of first relevant result)
   let reciprocal_rank = 0;
@@ -182,8 +183,7 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
   console.log(`Queries: ${total}\n`);
 
   console.log(`Retrieval Metrics:`);
-  console.log(`  Top-1 Accuracy: ${((top1_count / total) * 100).toFixed(1)}% (${top1_count}/${total})`);
-  console.log(`  Recall@1: ${(avg_recall1 * 100).toFixed(1)}%`);
+  console.log(`  Recall@1: ${((top1_count / total) * 100).toFixed(1)}%`);
   console.log(`  Recall@5: ${(avg_recall5 * 100).toFixed(1)}%`);
   console.log(`  Recall@10: ${(avg_recall10 * 100).toFixed(1)}%`);
   console.log(`  MRR: ${mrr.toFixed(3)}`);
@@ -191,7 +191,8 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
   console.log(`  Latency: ${avg_latency.toFixed(0)} ms\n`);
 
   console.log(`Legacy Metric:`);
-  console.log(`  Keyword Overlap: ${(avg_keyword * 100).toFixed(1)}%\n`);
+  console.log(`  Keyword Overlap: ${(avg_keyword * 100).toFixed(1)}%`);
+  console.log(`  (Weak proxy - remove once relevance corpus is complete)\n`);
 
   console.log('Individual Results:\n');
 
@@ -202,7 +203,8 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
     console.log(`   Query: "${result.query}"`);
     console.log(`   Top-1: ${result.metrics.top1_hit ? 'HIT' : 'MISS'}`);
     console.log(`   R@1: ${(result.metrics.recall1 * 100).toFixed(0)}% | R@5: ${(result.metrics.recall5 * 100).toFixed(0)}% | R@10: ${(result.metrics.recall10 * 100).toFixed(0)}%`);
-    console.log(`   RR: ${result.metrics.reciprocal_rank.toFixed(3)} | NDCG: ${result.metrics.ndcg.toFixed(3)} | Latency: ${result.latency_ms} ms`);
+    console.log(`   MRR: ${result.metrics.reciprocal_rank.toFixed(3)} | NDCG: ${result.metrics.ndcg.toFixed(3)}`);
+    console.log(`   Latency: ${result.latency_ms} ms`);
     console.log(`   Top 3: ${result.retrieved.slice(0, 3).map(r => r.id.substring(0, 15)).join(', ')}...`);
     console.log('');
   });
@@ -256,7 +258,7 @@ async function main() {
 
   // Use dynamic import to get provider
   const { MockEmbeddingProvider } = await import('../src/embedding/mock-provider');
-  const provider = new MockEmbeddingProvider();
+  const provider = new BedrockEmbeddingProvider();
   
   const retrievalService = new VectorRetrievalService(
     driver,

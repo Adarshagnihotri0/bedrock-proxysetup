@@ -9,6 +9,7 @@ import type { Evidence } from '../types/knowledge';
 import type { NewKnowledge } from '../types/knowledge-extraction';
 import type { KnowledgeExtractor } from '../types/extractors';
 import { TerminalOutputExtractor } from './terminal-output-extractor';
+import { ConversationExtractor } from './conversation-extractor';
 
 /**
  * Registry of all knowledge extractors
@@ -20,6 +21,7 @@ export class ExtractorRegistry {
     // Register extractors
     this.extractors = [
       new TerminalOutputExtractor(),
+      new ConversationExtractor(),
       // Future extractors:
       // new GitDiffExtractor(),
       // new GitCommitExtractor(),

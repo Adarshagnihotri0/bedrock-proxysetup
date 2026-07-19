@@ -16,7 +16,7 @@ import { Pool } from 'pg';
 import yaml from 'yaml';
 import fs from 'fs';
 import { VectorRetrievalService } from '../src/retrieval/vector-retrieval';
-import { MockEmbeddingProvider } from '../src/embedding/mock-provider';
+import { BedrockEmbeddingProvider } from '../src/embedding/bedrock-provider';
 import { EmbeddingProvider } from '../src/embedding/types';
 
 interface QueryTest {
@@ -156,7 +156,7 @@ async function main() {
     user: process.env.PGUSER || 'adarshagnihotri'
   });
 
-  const provider = new MockEmbeddingProvider();
+  const provider = new BedrockEmbeddingProvider();
   const retrievalService = new VectorRetrievalService(
     driver,
     pgPool,

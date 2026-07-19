@@ -16,7 +16,8 @@
 import neo4j, { Driver } from 'neo4j-driver';
 import { Pool } from 'pg';
 import { EmbeddingProvider } from '../src/embedding/types';
-import { MockEmbeddingProvider } from '../src/embedding/mock-provider';
+import { BedrockEmbeddingProvider } from '../src/embedding/bedrock-provider';
+// import { MockEmbeddingProvider } from '../src/embedding/mock-provider';
 // import { OpenAIEmbeddingProvider } from '../src/embedding/openai-provider';
 
 async function backfillEmbeddings(
@@ -131,10 +132,11 @@ async function main() {
     user: process.env.PGUSER || 'adarshagnihotri'
   });
 
-  // Use mock provider for development
-  const provider = new MockEmbeddingProvider();
+  // Use Bedrock Mantle embedding provider (via local proxy)
+  const provider = new BedrockEmbeddingProvider();
   
-  // For production:
+  // Alternatives:
+  // const provider = new MockEmbeddingProvider();
   // const provider = new OpenAIEmbeddingProvider();
 
   console.log(`Using embedding provider: ${provider.model} (dimension: ${provider.dimension})\n`);

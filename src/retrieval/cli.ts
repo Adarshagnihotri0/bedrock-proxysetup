@@ -10,6 +10,7 @@
 import neo4j from 'neo4j-driver';
 import { Pool } from 'pg';
 import { VectorRetrievalService } from './vector-retrieval';
+import { BedrockEmbeddingProvider } from '../embedding/bedrock-provider';
 
 async function main() {
   const query = process.argv[2];
@@ -33,15 +34,11 @@ async function main() {
     user: process.env.PGUSER || 'adarshagnihotri'
   });
 
-  // Mock embedding function (replace with OpenAI later)
-  const mockEmbed = async (text: string): Promise<number[]> => {
-    // TODO: Replace with OpenAI text-embedding-3-small
-    // For now, return a deterministic mock based on text length
-    const hash = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return Array(1536).fill(0).map((_, i) => Math.sin(hash + i) * 0.1);
-  };
+  // Use Bedrock Mantle embedding provider (via local proxy)
+  const embeddingProvider = new BedrockEmbeddingProvider();
+  const embedFn = async (text: string) => embeddingProvider.embed(text);
 
-  const retrievalService = new VectorRetrievalService(neo4jDriver, pgPool, mockEmbed);
+  const retrievalService = new VectorRetrievalService(neo4jDriver, pgPool, embedFn);
 
   try {
     console.log(`\nQuery: "${query}"\n`);
