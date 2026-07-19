@@ -22,9 +22,12 @@ import { EmbeddingProvider } from '../src/embedding/types';
 
 interface RelevantDocument {
   hash: string;
+  grade?: number;  // 3=highly relevant, 2=somewhat, 1=marginally
+  notes?: string;
 }
 
 interface QueryTest {
+  id: string;  // Stable query identifier for regression tracking
   query: string;
   description: string;
   category: string;
@@ -47,6 +50,7 @@ interface RetrievalMetrics {
 }
 
 interface QueryResult {
+  queryId: string;
   query: string;
   category: string;
   retrieved: Array<{ id: string; score: number }>;
@@ -56,39 +60,61 @@ interface QueryResult {
     recall5: number;
     recall10: number;
     reciprocal_rank: number;
+    ndcg: number;
     keyword_match: number;
   };
   latency_ms: number;
 }
 
+function computeNDCG(retrieved: string[], relevantHashes: Map<string, number>): number {
+  let dcg = 0;
+  for (let i = 0; i < retrieved.length; i++) {
+    const grade = relevantHashes.get(retrieved[i]) || 0;
+    dcg += grade / Math.log2(i + 2); // i+2 because log2(1) = 0
+  }
+  
+  // IDCG: ideal DCG (all relevant docs in perfect order)
+  const idealGrades = Array.from(relevantHashes.values()).sort((a, b) => b - a);
+  let idcg = 0;
+  for (let i = 0; i < Math.min(idealGrades.length, retrieved.length); i++) {
+    idcg += idealGrades[i] / Math.log2(i + 2);
+  }
+  
+  return idcg > 0 ? dcg / idcg : 0;
+}
+
 function computeMetrics(
   retrieved: Array<{ id: string; hash?: string; score: number }>,
-  relevantHashes: string[],
+  relevant: RelevantDocument[],
   keywords?: string[]
-): { top1_hit: boolean; recall1: number; recall5: number; recall10: number; reciprocal_rank: number; keyword_match: number } {
+): { top1_hit: boolean; recall1: number; recall5: number; recall10: number; reciprocal_rank: number; ndcg: number; keyword_match: number } {
   // Use hash if available, otherwise fall back to id
   const retrieved_ids = retrieved.map(r => r.hash || r.id);
+  const relevantHashes = new Map(relevant.map(r => [r.hash, r.grade || 1]));
   
   // Top-1 accuracy
-  const top1_hit = relevantHashes.includes(retrieved_ids[0]);
+  const top1_hit = relevantHashes.has(retrieved_ids[0]);
   
   // Recall@1 (is first relevant doc in position 1?)
-  const recall1 = relevantHashes.includes(retrieved_ids[0]) ? 1 : 0;
+  const recall1 = relevantHashes.has(retrieved_ids[0]) ? 1 : 0;
   
   // Recall@5 (fraction of relevant docs in top 5)
-  const recall5 = relevantHashes.filter(h => retrieved_ids.slice(0, 5).includes(h)).length / relevantHashes.length;
+  const recall5 = relevant.filter(r => retrieved_ids.slice(0, 5).includes(r.hash)).length / relevant.length;
   
   // Recall@10 (fraction of relevant docs in top 10)
-  const recall10 = relevantHashes.filter(h => retrieved_ids.includes(h)).length / relevantHashes.length;
+  const recall10 = relevant.filter(r => retrieved_ids.includes(r.hash)).length / relevant.length;
   
   // Reciprocal Rank (1/position of first relevant result)
   let reciprocal_rank = 0;
   for (let i = 0; i < retrieved_ids.length; i++) {
-    if (relevantHashes.includes(retrieved_ids[i])) {
+    if (relevantHashes.has(retrieved_ids[i])) {
       reciprocal_rank = 1 / (i + 1);
       break;
     }
   }
+  
+  // NDCG (Normalized Discounted Cumulative Gain) - uses graded relevance
+  const ndcg = computeNDCG(retrieved_ids, relevantHashes);
   
   // Keyword overlap (legacy, weak metric)
   let keyword_match = 0;
@@ -97,7 +123,7 @@ function computeMetrics(
     keyword_match = keywords.filter(kw => resultText.includes(kw.toLowerCase())).length / keywords.length;
   }
   
-  return { top1_hit, recall1, recall5, recall10, reciprocal_rank, keyword_match };
+  return { top1_hit, recall1, recall5, recall10, reciprocal_rank, ndcg, keyword_match };
 }
 
 async function evaluateRetrieval(
@@ -119,11 +145,12 @@ async function evaluateRetrieval(
         hash: r.provenance?.hash, 
         score: r.score 
       })),
-      relevantHashes,
+      test.relevant,
       test.keywords
     );
 
     results.push({
+      queryId: test.id,
       query: test.query,
       category: test.category,
       retrieved: retrieved.slice(0, 10).map(r => ({ id: r.id, score: r.score })),
@@ -146,6 +173,7 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
   const avg_recall5 = results.reduce((sum, r) => sum + r.metrics.recall5, 0) / total;
   const avg_recall10 = results.reduce((sum, r) => sum + r.metrics.recall10, 0) / total;
   const mrr = results.reduce((sum, r) => sum + r.metrics.reciprocal_rank, 0) / total;
+  const avg_ndcg = results.reduce((sum, r) => sum + r.metrics.ndcg, 0) / total;
   const avg_keyword = results.reduce((sum, r) => sum + r.metrics.keyword_match, 0) / total;
   const avg_latency = results.reduce((sum, r) => sum + r.latency_ms, 0) / total;
 
@@ -159,6 +187,7 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
   console.log(`  Recall@5: ${(avg_recall5 * 100).toFixed(1)}%`);
   console.log(`  Recall@10: ${(avg_recall10 * 100).toFixed(1)}%`);
   console.log(`  MRR: ${mrr.toFixed(3)}`);
+  console.log(`  NDCG: ${avg_ndcg.toFixed(3)}`);
   console.log(`  Latency: ${avg_latency.toFixed(0)} ms\n`);
 
   console.log(`Legacy Metric:`);
@@ -169,11 +198,11 @@ function printReport(results: QueryResult[], provider: EmbeddingProvider, corpus
   results.forEach((result, i) => {
     const status = result.metrics.top1_hit ? '✅' : '❌';
     
-    console.log(`${i + 1}. ${status} [${result.category}]`);
+    console.log(`${i + 1}. ${status} [${result.queryId}]`);
     console.log(`   Query: "${result.query}"`);
     console.log(`   Top-1: ${result.metrics.top1_hit ? 'HIT' : 'MISS'}`);
     console.log(`   R@1: ${(result.metrics.recall1 * 100).toFixed(0)}% | R@5: ${(result.metrics.recall5 * 100).toFixed(0)}% | R@10: ${(result.metrics.recall10 * 100).toFixed(0)}%`);
-    console.log(`   RR: ${result.metrics.reciprocal_rank.toFixed(3)} | Latency: ${result.latency_ms} ms`);
+    console.log(`   RR: ${result.metrics.reciprocal_rank.toFixed(3)} | NDCG: ${result.metrics.ndcg.toFixed(3)} | Latency: ${result.latency_ms} ms`);
     console.log(`   Top 3: ${result.retrieved.slice(0, 3).map(r => r.id.substring(0, 15)).join(', ')}...`);
     console.log('');
   });

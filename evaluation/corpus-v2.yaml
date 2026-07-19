@@ -5,8 +5,11 @@
 # Philosophy: Corpus describes relevant documents, not ranking buckets.
 # Metrics (Top-1, R@5, R@10, MRR, NDCG) computed from same ground truth.
 #
-# Stable identifiers: Use hash/uuid instead of database-generated IDs
-# so benchmarks remain valid after database rebuilds.
+# Structure:
+# - Query ID: Stable identifier for regression tracking
+# - Hash: Stable document identifier (survives database rebuilds)
+# - Grade: Relevance level (3=highly relevant, 2=somewhat, 1=marginally)
+# - Notes: Human-readable context for why this doc is relevant
 #
 # Status: Structure ready, needs populated relevance judgments
 #
@@ -15,32 +18,47 @@
 version: v2
 
 queries:
-  - query: "canonical serialization replay"
+  - id: canonical-replay
+    query: "canonical serialization replay"
     description: "Query about canonical serialization and replay"
     category: Architecture
     
-    # Ground-truth relevant documents (hash/uuid identifiers)
-    # TODO: Populate with actual relevant knowledge after manual review
     relevant:
-      - hash: abc123def456  # canonical serialization approach
-      - hash: def789ghi012  # replay implementation
-      - hash: jkl345mno678  # canonical format validation
+      - hash: abc123def456
+        grade: 3
+        notes: "Canonical serialization approach for replay system"
+      
+      - hash: def789ghi012
+        grade: 2
+        notes: "Replay implementation details"
+      
+      - hash: jkl345mno678
+        grade: 2
+        notes: "Canonical format validation"
     
-    # Legacy keyword matching (supplementary)
     keywords:
       - canonical
       - serialization
       - replay
       - hash
 
-  - query: "neo4j projection knowledge"
+  - id: neo4j-projection
+    query: "neo4j projection knowledge"
     description: "Query about Neo4j projection"
     category: Architecture
     
     relevant:
-      - hash: pqr890stu123  # projection mechanism
-      - hash: tuv456wxy789  # knowledge graph design
-      - hash: yz012abc345  # neo4j integration
+      - hash: pqr890stu123
+        grade: 3
+        notes: "Graph projection mechanism"
+      
+      - hash: tuv456wxy789
+        grade: 2
+        notes: "Knowledge graph design patterns"
+      
+      - hash: yz012abc345
+        grade: 2
+        notes: "Neo4j integration specifics"
     
     keywords:
       - projection
@@ -48,14 +66,23 @@ queries:
       - knowledge
       - graph
 
-  - query: "validation idempotency replay"
+  - id: validation-idempotent
+    query: "validation idempotency replay"
     description: "Query about validation and idempotency"
     category: Replay
     
     relevant:
-      - hash: def678ghi901  # validation replay
-      - hash: jkl234mno567  # idempotency constraints
-      - hash: pqr890stu123  # validation guarantees
+      - hash: def678ghi901
+        grade: 3
+        notes: "Validation replay mechanisms"
+      
+      - hash: jkl234mno567
+        grade: 2
+        notes: "Idempotency constraints in replay"
+      
+      - hash: pqr890stu123
+        grade: 2
+        notes: "Validation guarantees for replay"
     
     keywords:
       - validation
@@ -63,14 +90,23 @@ queries:
       - replay
       - constraint
 
-  - query: "embedding vector search"
+  - id: vector-search
+    query: "embedding vector search"
     description: "Query about embeddings and vector search"
     category: Embedding
     
     relevant:
-      - hash: tuv456wxy789  # embedding implementation
-      - hash: yz012abc345  # vector similarity
-      - hash: def678ghi901  # search optimization
+      - hash: tuv456wxy789
+        grade: 3
+        notes: "Embedding implementation architecture"
+      
+      - hash: yz012abc345
+        grade: 2
+        notes: "Vector similarity algorithms"
+      
+      - hash: def678ghi901
+        grade: 2
+        notes: "Search optimization strategies"
     
     keywords:
       - embedding
@@ -78,14 +114,23 @@ queries:
       - search
       - similarity
 
-  - query: "knowledge retrieval pipeline"
+  - id: retrieval-pipeline
+    query: "knowledge retrieval pipeline"
     description: "Query about retrieval pipeline"
     category: Retrieval
     
     relevant:
-      - hash: jkl234mno567  # retrieval pipeline
-      - hash: pqr890stu123  # query processing
-      - hash: tuv456wxy789  # result ranking
+      - hash: jkl234mno567
+        grade: 3
+        notes: "Retrieval pipeline architecture"
+      
+      - hash: pqr890stu123
+        grade: 2
+        notes: "Query processing stages"
+      
+      - hash: tuv456wxy789
+        grade: 2
+        notes: "Result ranking strategies"
     
     keywords:
       - retrieval
